@@ -326,8 +326,11 @@ licence locks the app immediately.
 
 **The app key** — every request carries an `x-app-key` header that identifies
 this build. It is set in `LicenseConfiguration.AppKey`. It can also be supplied
-at run time with the `ADM_APP_KEY` environment variable or an `appkey.txt` file
-next to the executable, so it can be changed without a rebuild.
+at run time with the `ADM_APP_KEY` environment variable, an `appkey.txt` file
+next to the executable, or the **Set the app key** panel in the activation
+window, so a build that was packaged with an incomplete key can be repaired
+without a rebuild. The licence server answers a wrong licence key and a wrong
+app key in the same way, so the activation window names both.
 
 The Ed25519 verification is implemented in `Adm.Core.Licensing.Ed25519`
 (RFC 8032), so the app needs no cryptography package. It can confirm a token
