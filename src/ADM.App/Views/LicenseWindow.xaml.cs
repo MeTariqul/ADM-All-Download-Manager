@@ -13,6 +13,7 @@ public partial class LicenseWindow : Window
 {
     private readonly LicenseService _license;
     private bool _busy;
+    private bool _refused;
 
     public LicenseWindow(LicenseService license)
     {
@@ -26,17 +27,10 @@ public partial class LicenseWindow : Window
 
         AppKeyBox.Text = AppKeyStore.Current;
 
-        // A build without a full app key cannot be activated, so say so
-        // instead of letting the user guess why the key is refused.
-        bool incomplete = !LicenseConfiguration.AppKeyLooksComplete;
-        AppKeyWarning.Visibility = incomplete ? Visibility.Visible : Visibility.Collapsed;
-
-        if (incomplete)
-        {
-            AppKeyWarningText.Text =
-                "This build has no complete app key, so the licence server will refuse every key. " +
-                "Set the app key below, or set the ADM_APP_KEY environment variable.";
-        }
+        // The panel stays hidden until the server actually refuses a key. The
+        // length of the app key says nothing about whether it is right, so a
+        // warning based on it would be a guess.
+        AppKeyWarning.Visibility = Visibility.Collapsed;
 
         Loaded += OnLoaded;
     }
@@ -65,6 +59,17 @@ public partial class LicenseWindow : Window
         else
             ExpiryText.Text = string.Empty;
 
+        // A refusal is the only reliable sign that the app key may be wrong,
+        // because the server answers a bad licence key and a bad app key in
+        // the same way.
+        if (_refused)
+        {
+            AppKeyWarning.Visibility = Visibility.Visible;
+            AppKeyWarningText.Text =
+                "The licence server refused the key. It answers a wrong licence key and a " +
+                "wrong app key in the same way, so check the app key of this build as well.";
+        }
+
         ActivateButton.IsEnabled = !_busy;
     }
 
@@ -88,6 +93,7 @@ public partial class LicenseWindow : Window
         try
         {
             var status = await _license.ActivateAsync(key);
+            _refused = status.State == LicenseState.Invalid;
             Apply(status);
 
             if (status.IsLicensed)
@@ -113,6 +119,7 @@ public partial class LicenseWindow : Window
     {
         if (AppKeyStore.TrySave(AppKeyBox.Text, out string? error))
         {
+            _refused = false;
             AppKeyWarning.Visibility = Visibility.Collapsed;
             StatusText.Text = "The app key was saved. Enter the licence key and activate.";
         }
@@ -128,10 +135,6 @@ public partial class LicenseWindow : Window
         if (AppKeyStore.TryClear(out string? error))
         {
             AppKeyBox.Text = AppKeyStore.Current;
-            AppKeyWarning.Visibility = LicenseConfiguration.AppKeyLooksComplete
-                ? Visibility.Collapsed
-                : Visibility.Visible;
-
             StatusText.Text = "The stored app key was removed.";
         }
         else
