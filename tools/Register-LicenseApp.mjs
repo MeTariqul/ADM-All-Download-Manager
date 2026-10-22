@@ -81,7 +81,12 @@ async function uniqueLicenseKey(appId) {
 }
 
 async function main() {
+  // An application that is already registered is reused, whatever its slug
+  // is, so a second run never creates a duplicate.
   let app = await prisma.app.findUnique({ where: { slug } });
+  if (!app) {
+    app = await prisma.app.findFirst({ where: { name }, orderBy: { createdAt: "asc" } });
+  }
 
   if (!app) {
     app = await prisma.app.create({
