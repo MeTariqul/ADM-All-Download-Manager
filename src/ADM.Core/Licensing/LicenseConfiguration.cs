@@ -9,7 +9,7 @@ public static class LicenseConfiguration
     /// The app key sent in the x-app-key header. It identifies this build to
     /// the licence server and is not a secret that the user ever sees.
     /// </summary>
-    public const string AppKey = "appk_88UIXYm";
+    public const string AppKey = "appk_IzyQz0vxSltfXCdjHIH8yGZorb5XKwT9";
 
     /// <summary>The address of the licence API.</summary>
     public const string BaseUrl = LicenseClient.DefaultBaseUrl;

@@ -59,6 +59,7 @@ internal static class Program
             ("the licence state machine works", LicenseServiceStates),
             ("the device id is stable", DeviceIdentityTests),
             ("the app key can be overridden at run time", AppKeyOverride),
+            ("a live licence token verifies offline (opt-in)", LicenseLiveIntegration),
             ("FTP download against a local server (opt-in)", FtpIntegration)
         };
 
@@ -933,19 +934,49 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static async Task LicenseLiveIntegration()
+    {
+        if (!string.Equals(Environment.GetEnvironmentVariable("ADM_LICENSE_INTEGRATION"), "1",
+                StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        string licenseKey = Environment.GetEnvironmentVariable("ADM_LICENSE_KEY") ?? string.Empty;
+        if (licenseKey.Length == 0)
+            throw new InvalidOperationException("Set ADM_LICENSE_KEY to a licence key for the ADM app.");
+
+        var client = new LicenseClient();
+        var response = await client.ActivateAsync(licenseKey, DeviceIdentity.DeviceId);
+        Assert.True(response.Ok, "activation failed: " + response.Error);
+
+        var token = LicenseToken.Parse(response.Token);
+        Assert.True(token is not null, "the token was not parsed");
+
+        // The point of the whole exercise: the token the server issued
+        // verifies offline with the public key that ships inside the app.
+        Assert.True(token!.VerifySignature(LicenseConfiguration.PublicKeyPem),
+            "the live token did not verify with the shipped public key");
+        Assert.Equal(DeviceIdentity.DeviceId, token.Claims.DeviceId);
+        Assert.False(token.Claims.IsExpired(DateTimeOffset.Now), "the live token was already expired");
+
+        string tampered = token.Payload + "." + LicenseToken.Base64UrlEncode(new byte[64]);
+        Assert.False(LicenseToken.Parse(tampered)!.VerifySignature(LicenseConfiguration.PublicKeyPem),
+            "a tampered live token was accepted");
+    }
+
     private static Task DeviceIdentityTests()
     {
         string id = DeviceIdentity.DeviceId;
 
-        Assert.Equal(32, id.Length);
-        Assert.True(id.All(char.IsLetterOrDigit), "the device id must be hex");
+        // The licensing service uses the Windows MachineGuid in the canonical
+        // GUID form, so the id has to look like one.
+        Assert.True(Guid.TryParse(id, out _), $"the device id '{id}' is not a GUID");
+        Assert.Equal(36, id.Length);
 
         // The id is stable within a run.
         Assert.Equal(id, DeviceIdentity.DeviceId);
-        Assert.Equal(id.Substring(0, 12).ToUpperInvariant(), DeviceIdentity.ShortId);
-
-        // The raw machine guid must not appear in the id.
-        Assert.False(id.Contains("-"), "the device id must not be a raw guid");
+        Assert.Equal(id[..12].ToUpperInvariant(), DeviceIdentity.ShortId);
 
         return Task.CompletedTask;
     }

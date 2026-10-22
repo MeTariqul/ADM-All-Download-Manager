@@ -31,6 +31,20 @@ public enum LicenseState
     Tampered = 8
 }
 
+/// <summary>The outcome of asking the server for a licence key.</summary>
+public sealed class LicenseRequestResult
+{
+    public bool Ok { get; init; }
+
+    /// <summary>The key, when the server handed one out straight away.</summary>
+    public string? Key { get; init; }
+
+    /// <summary>A message for the user.</summary>
+    public string? Error { get; init; }
+
+    public static LicenseRequestResult Failed(string error) => new() { Ok = false, Error = error };
+}
+
 /// <summary>The result of a licence check.</summary>
 public sealed class LicenseStatus
 {

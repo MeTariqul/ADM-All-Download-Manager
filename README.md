@@ -313,10 +313,10 @@ The token format is `base64url(payload).base64url(signature)`. The payload
 carries the device id (`d`), the expiry (`e`) and the next re-check time (`r`),
 all in Unix milliseconds.
 
-**Device id** — a stable per-machine value. It is derived from the Windows
-`MachineGuid` and the computer name and then hashed, so the raw identifier is
-never sent to the server. The activation window shows it and can copy it to the
-clipboard.
+**Device id** — the Windows `MachineGuid` in its canonical GUID form, the same
+fingerprint the licensing service and the other applications of the author use.
+The server stores only a SHA-256 digest of it, so the raw value never lands in
+the database. The activation window shows it and can copy it to the clipboard.
 
 **Offline behaviour** — the signature check needs no network. If the server
 cannot be reached when a re-check is due, ADM keeps running until the licence
@@ -331,6 +331,22 @@ next to the executable, or the **Set the app key** panel in the activation
 window, so a build that was packaged with an incomplete key can be repaired
 without a rebuild. The licence server answers a wrong licence key and a wrong
 app key in the same way, so the activation window names both.
+
+### Registering the app in the licence dashboard
+
+The licence service keeps one row per shipped application, and a licence key
+only works for the application it was issued for. A new build of ADM therefore
+needs a row in the dashboard before anyone can activate it.
+`tools/Register-LicenseApp.mjs` writes that row and creates a licence key:
+
+```powershell
+node tools\Register-LicenseApp.mjs --dashboard "D:\path\to\the\dashboard"
+```
+
+The script is idempotent, never deletes anything, and prints the app key and
+the licence key. Put the app key in `LicenseConfiguration.AppKey` and give the
+licence key to the person who installs the build. The dashboard can also issue
+keys on its own through the admin pages.
 
 The Ed25519 verification is implemented in `Adm.Core.Licensing.Ed25519`
 (RFC 8032), so the app needs no cryptography package. It can confirm a token
