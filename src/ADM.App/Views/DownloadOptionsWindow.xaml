@@ -1,0 +1,74 @@
+<Window x:Class="Adm.App.Views.DownloadOptionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Download options"
+        Width="480" Height="430"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        FontFamily="Segoe UI"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True">
+
+    <Grid Margin="28,24,28,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <StackPanel>
+            <TextBlock Text="Download options" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock x:Name="FileText" FontSize="11.5" Foreground="{StaticResource TextMutedBrush}"
+                       TextTrimming="CharacterEllipsis" Margin="0,6,0,0" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="0,20,0,16" VerticalScrollBarVisibility="Auto">
+            <StackPanel>
+                <TextBlock Text="TRANSFER" Style="{StaticResource SectionLabel}" />
+
+                <TextBlock Text="Connections" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                           Margin="0,12,0,6" />
+                <TextBox x:Name="ConnectionsBox" Style="{StaticResource InputBox}" Width="120"
+                         HorizontalAlignment="Left" />
+
+                <TextBlock Text="Speed limit (KB/s, 0 = unlimited)" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16,0,6" />
+                <TextBox x:Name="SpeedLimitBox" Style="{StaticResource InputBox}" Width="120"
+                         HorizontalAlignment="Left" />
+
+                <TextBlock Text="Priority (higher starts first)" FontSize="12"
+                           Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16,0,6" />
+                <TextBox x:Name="PriorityBox" Style="{StaticResource InputBox}" Width="120"
+                         HorizontalAlignment="Left" />
+
+                <Border Height="1" Background="{StaticResource BorderBrush}" Margin="0,22,0,20" />
+
+                <TextBlock Text="VERIFY" Style="{StaticResource SectionLabel}" />
+                <TextBlock Text="Expected checksum (optional). The finished file is compared with it."
+                           FontSize="11.5" Foreground="{StaticResource TextMutedBrush}"
+                           TextWrapping="Wrap" Margin="0,12,0,10" />
+
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBox x:Name="ChecksumBox" Style="{StaticResource InputBox}" />
+                    <ComboBox x:Name="ChecksumAlgorithmBox" Grid.Column="1" Width="110" Margin="8,0,0,0"
+                              VerticalAlignment="Center" />
+                </Grid>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Cancel" Style="{StaticResource GhostButton}" IsCancel="True"
+                    Padding="20,9" Margin="0,0,10,0" />
+            <Button Content="Save" Style="{StaticResource PrimaryButton}" IsDefault="True"
+                    Padding="24,9" Click="OnSave" />
+        </StackPanel>
+    </Grid>
+</Window>

@@ -1,0 +1,177 @@
+<Window x:Class="Adm.App.Views.VideoDownloadWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Download video"
+        Width="680" Height="610"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ShowInTaskbar="False"
+        Background="{StaticResource WindowBackgroundBrush}"
+        Foreground="{StaticResource TextPrimaryBrush}"
+        FontFamily="Segoe UI"
+        TextOptions.TextFormattingMode="Display"
+        UseLayoutRounding="True"
+        Loaded="OnLoaded">
+
+    <Window.Resources>
+        <Style x:Key="FormatListBox" TargetType="ListBox" BasedOn="{StaticResource DownloadList}">
+            <Setter Property="SelectionMode" Value="Single" />
+        </Style>
+
+        <Style x:Key="FormatItem" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Root" Background="Transparent" CornerRadius="6"
+                                Padding="12,10" Margin="0,1">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{StaticResource SelectionBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="28,24,28,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Width="132" Height="74" CornerRadius="6"
+                    Background="{StaticResource SurfaceAltBrush}" Margin="0,12,14,0"
+                    VerticalAlignment="Top" ClipToBounds="True">
+                <Image x:Name="ThumbnailImage" Stretch="UniformToFill" Visibility="Collapsed"
+                       ClipToBounds="True" />
+            </Border>
+
+            <StackPanel Grid.Column="1">
+                <TextBlock Text="Download video" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock x:Name="TitleText" Text="Reading video information..."
+                           FontSize="13" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,14,0,0" />
+                <TextBlock x:Name="SourceText" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                           TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                <TextBlock x:Name="SummaryText" FontSize="11.5" Foreground="{StaticResource TextMutedBrush}"
+                           Margin="0,5,0,0" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,18,0,10">
+            <TextBlock Text="CHOOSE QUALITY" Style="{StaticResource SectionLabel}" VerticalAlignment="Center" />
+            <TextBlock x:Name="FormatCountText" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}"
+                       HorizontalAlignment="Right" VerticalAlignment="Center" />
+        </Grid>
+
+        <Grid Grid.Row="2">
+            <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="8" Padding="4">
+                <ListBox x:Name="FormatList" Style="{StaticResource FormatListBox}"
+                         ItemContainerStyle="{StaticResource FormatItem}"
+                         MouseDoubleClick="OnFormatDoubleClick">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <StackPanel VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="{Binding ResolutionText}" FontSize="13" FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                        <Border Background="{StaticResource SurfaceAltBrush}" CornerRadius="4"
+                                                Padding="6,2" Margin="9,0,0,0"
+                                                Visibility="{Binding IsRecommended, Converter={StaticResource BoolToVisibility}}">
+                                            <TextBlock Text="Recommended" FontSize="9.5" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding FormatText}" FontSize="11.5"
+                                               Foreground="{StaticResource TextMutedBrush}" Margin="0,3,0,0" />
+                                </StackPanel>
+
+                                <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontSize="11.5"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" Margin="16,0,4,0" />
+                            </Grid>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </Border>
+
+            <Border x:Name="LoadingPanel" Background="{StaticResource SurfaceBrush}" CornerRadius="8">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Fetching available formats..." FontSize="12.5"
+                               Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="This usually takes a few seconds." FontSize="11"
+                               Foreground="{StaticResource TextMutedBrush}" Margin="0,6,0,0" HorizontalAlignment="Center" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="ErrorPanel" Background="{StaticResource SurfaceBrush}" CornerRadius="8"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="22"
+                    Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="Could not read this video" FontSize="14" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="ErrorText" FontSize="12" Foreground="{StaticResource DangerBrush}"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0" />
+                    <Button Content="Try again" Style="{StaticResource GhostButton}" HorizontalAlignment="Center"
+                            Margin="0,18,0,0" Click="OnRetry" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="PlaylistPanel" Background="{StaticResource SurfaceBrush}" CornerRadius="8"
+                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="26"
+                    Visibility="Collapsed">
+                <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="This is a playlist" FontSize="14" FontWeight="SemiBold"
+                               HorizontalAlignment="Center" />
+                    <TextBlock x:Name="PlaylistText" FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                               TextWrapping="Wrap" TextAlignment="Center" Margin="0,10,0,0"
+                               HorizontalAlignment="Center" MaxWidth="380" />
+                    <Button Content="Choose videos..." Style="{StaticResource GhostButton}"
+                            HorizontalAlignment="Center" Margin="0,18,0,0" Click="OnDownload" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <Grid Grid.Row="3" Margin="0,16,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock x:Name="FolderText" FontSize="10.5" Foreground="{StaticResource TextMutedBrush}"
+                       TextTrimming="CharacterEllipsis" Margin="0,0,0,12" />
+
+            <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Cancel" Style="{StaticResource GhostButton}" IsCancel="True"
+                        Padding="20,9" Margin="0,0,10,0" />
+                <Button x:Name="DownloadButton" Content="Download" Style="{StaticResource PrimaryButton}"
+                        IsDefault="True" Padding="24,9" IsEnabled="False" Click="OnDownload" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>
