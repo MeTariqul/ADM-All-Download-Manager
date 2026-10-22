@@ -1,0 +1,9 @@
+bin/
+obj/
+artifacts/
+vendor/
+.vs/
+*.user
+*.suo
+TestResults/
+node_modules/
