@@ -80,6 +80,59 @@ public sealed class LicenseClient
         return await PostAsync("verify", payload, cancellationToken).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Asks the server for a licence key for an address. The dashboard can be
+    /// set to hand the key out straight away, so the reply may already carry
+    /// it; otherwise it arrives by mail.
+    /// </summary>
+    public async Task<LicenseRequestResult> RequestKeyAsync(string email,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new Dictionary<string, string> { ["email"] = email };
+
+        try
+        {
+            string json = JsonSerializer.Serialize(payload);
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/request")
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            };
+
+            AddHeaders(request);
+
+            using var response = await _http.SendAsync(request, cancellationToken).ConfigureAwait(false);
+            string body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            if (string.IsNullOrWhiteSpace(body))
+                return LicenseRequestResult.Failed("The licence server returned an empty answer.");
+
+            using var document = JsonDocument.Parse(body);
+            var root = document.RootElement;
+
+            bool ok = root.TryGetProperty("ok", out var okValue) && okValue.ValueKind == JsonValueKind.True;
+            string? key = root.TryGetProperty("key", out var keyValue) ? keyValue.GetString() : null;
+            string? error = root.TryGetProperty("error", out var errorValue) ? errorValue.GetString() : null;
+
+            if (!ok)
+                return LicenseRequestResult.Failed(error ?? "The licence server refused the request.");
+
+            return new LicenseRequestResult
+            {
+                Ok = true,
+                Key = string.IsNullOrWhiteSpace(key) ? null : key
+            };
+        }
+        catch (OperationCanceledException)
+        {
+            return LicenseRequestResult.Failed("The request to the licence server timed out.");
+        }
+        catch (Exception ex)
+        {
+            return LicenseRequestResult.Failed("The licence server could not be reached: " + ex.Message);
+        }
+    }
+
     /// <summary>Fetches the public key that signs the license tokens.</summary>
     public async Task<(bool Ok, string PublicKey, int RecheckDays, string? Error)> GetPublicKeyAsync(
         CancellationToken cancellationToken = default)
