@@ -24,11 +24,19 @@ public partial class LicenseWindow : Window
             ? license.DeviceId[..12].ToUpperInvariant()
             : license.DeviceId.ToUpperInvariant();
 
-        // A build without a full app key can never be activated, so say so
+        AppKeyBox.Text = AppKeyStore.Current;
+
+        // A build without a full app key cannot be activated, so say so
         // instead of letting the user guess why the key is refused.
-        AppKeyWarning.Visibility = LicenseConfiguration.AppKeyLooksComplete
-            ? Visibility.Collapsed
-            : Visibility.Visible;
+        bool incomplete = !LicenseConfiguration.AppKeyLooksComplete;
+        AppKeyWarning.Visibility = incomplete ? Visibility.Visible : Visibility.Collapsed;
+
+        if (incomplete)
+        {
+            AppKeyWarningText.Text =
+                "This build has no complete app key, so the licence server will refuse every key. " +
+                "Set the app key below, or set the ADM_APP_KEY environment variable.";
+        }
 
         Loaded += OnLoaded;
     }
@@ -36,10 +44,8 @@ public partial class LicenseWindow : Window
     /// <summary>True when the user asked to close the window without a licence.</summary>
     public bool UserCancelled { get; private set; }
 
-    private async void OnLoaded(object sender, RoutedEventArgs e)
-    {
+    private async void OnLoaded(object sender, RoutedEventArgs e) =>
         await RefreshAsync();
-    }
 
     private async Task RefreshAsync()
     {
@@ -99,6 +105,38 @@ public partial class LicenseWindow : Window
             _busy = false;
             ActivateButton.IsEnabled = true;
             ActivateButton.Content = "Activate";
+        }
+    }
+
+    /// <summary>Stores the app key next to the executable.</summary>
+    private void OnSaveAppKey(object sender, RoutedEventArgs e)
+    {
+        if (AppKeyStore.TrySave(AppKeyBox.Text, out string? error))
+        {
+            AppKeyWarning.Visibility = Visibility.Collapsed;
+            StatusText.Text = "The app key was saved. Enter the licence key and activate.";
+        }
+        else
+        {
+            StatusText.Text = "The app key could not be saved: " + error;
+        }
+    }
+
+    /// <summary>Removes the stored app key and falls back to the built in one.</summary>
+    private void OnResetAppKey(object sender, RoutedEventArgs e)
+    {
+        if (AppKeyStore.TryClear(out string? error))
+        {
+            AppKeyBox.Text = AppKeyStore.Current;
+            AppKeyWarning.Visibility = LicenseConfiguration.AppKeyLooksComplete
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+
+            StatusText.Text = "The stored app key was removed.";
+        }
+        else
+        {
+            StatusText.Text = "The app key could not be removed: " + error;
         }
     }
 

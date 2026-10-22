@@ -200,12 +200,22 @@ public sealed class LicenseService
 
         if (!response.Ok || string.IsNullOrWhiteSpace(response.Token))
         {
+            string message = response.Error ?? "The licence key was refused.";
+
+            // The server answers a wrong licence key and a wrong app key with
+            // the same message, so both are named to save the user a guess.
+            if (string.Equals(response.Status, "invalid", StringComparison.OrdinalIgnoreCase))
+            {
+                message = "The licence server refused this key. Check the licence key and the " +
+                          "app key of this build.";
+            }
+
             _status = new LicenseStatus
             {
                 State = response.IsNetworkError
                     ? LicenseState.Unreachable
                     : LicenseStatus.FromServerStatus(response.Status),
-                Message = response.Error ?? "The licence key was refused.",
+                Message = message,
                 Key = trimmed,
                 DeviceId = DeviceId
             };
