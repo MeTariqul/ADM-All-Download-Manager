@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADM</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header class="header">
+    <div class="brand">
+      <div class="logo">↓</div>
+      <div>
+        <div class="title">ADM</div>
+        <div class="subtitle">All Download Manager</div>
+      </div>
+    </div>
+    <span id="connection" class="pill">checking…</span>
+  </header>
+
+  <label class="toggle">
+    <input type="checkbox" id="intercept" />
+    <span class="switch" aria-hidden="true"></span>
+    <span class="toggle-label">Catch browser downloads</span>
+  </label>
+
+  <div class="section-head">
+    <span>MEDIA ON THIS PAGE</span>
+    <button id="refresh" class="link">Refresh</button>
+  </div>
+
+  <div id="media" class="media-list">
+    <div class="empty">No media detected yet.</div>
+  </div>
+
+  <div class="section-head">
+    <span>FILE LINKS ON THIS PAGE</span>
+    <button id="refreshFiles" class="link">Refresh</button>
+  </div>
+
+  <div id="files" class="media-list">
+    <div class="empty">No file links detected yet.</div>
+  </div>
+
+  <div class="actions">
+    <button id="downloadAll" class="btn secondary">Download all files</button>
+    <button id="downloadVideo" class="btn secondary">Download video</button>
+    <button id="sendPage" class="btn secondary">Send page link</button>
+    <button id="openApp" class="btn primary">Open ADM</button>
+  </div>
+
+  <div id="status" class="status" role="status"></div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
