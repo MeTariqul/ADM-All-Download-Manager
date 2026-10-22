@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-The bundled yt-dlp and FFmpeg executables are not covered by this licence.
-They are distributed under their own terms:
-
-  yt-dlp: Unlicense (https://github.com/yt-dlp/yt-dlp/blob/master/LICENSE)
-  FFmpeg: LGPL/GPL depending on the build (https://ffmpeg.org/legal.html)
