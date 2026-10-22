@@ -206,8 +206,7 @@ public sealed class LicenseService
             // the same message, so both are named to save the user a guess.
             if (string.Equals(response.Status, "invalid", StringComparison.OrdinalIgnoreCase))
             {
-                message = "The licence server refused this key. Check the licence key and the " +
-                          "app key of this build.";
+                message = "The licence server refused this key.";
             }
 
             _status = new LicenseStatus
