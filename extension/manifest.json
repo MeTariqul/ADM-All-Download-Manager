@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "name": "ADM All Download Manager",
+  "version": "1.2.0",
+  "description": "Hand downloads and page media to ADM All Download Manager.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAoCyUhlM010DPe/xGkJbVcNXUmEARWX9ZTM+M8zIFRV0ciC6+3C5Jmkk7Z6i6DRgAJ8VEUOUKRfp5XzWpNFOLFB9wMWX6jVrdPU5ZAdToIbFArsUrCAx0UNwP2OC9/aen4NqslWZ4G+nVLaZaAIzb0+7sF9W2K09fSpgc87h4TN9uf3yoYUlQgFq0b9alo+pEPPLMCLrro/AkqsaRIb9ZQkCC0TXawjfHAeCSX7eGs11xGbIZoF/fhehiMWkDC5tQi0uBiGuzzQuCjQRqvIaIqxwgZO7sdalqfArkPvwl/uWgIBbZ7T9QvfI2QjUppi4r8aEHwT+80gnD1urvoihaXQIDAQAB",
+  "permissions": [
+    "downloads",
+    "nativeMessaging",
+    "storage",
+    "contextMenus",
+    "tabs",
+    "webRequest",
+    "cookies"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "ADM All Download Manager",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
