@@ -58,6 +58,7 @@ internal static class Program
             ("license tokens are parsed and verified", LicenseTokens),
             ("the licence state machine works", LicenseServiceStates),
             ("the device id is stable", DeviceIdentityTests),
+            ("the app key can be overridden at run time", AppKeyOverride),
             ("FTP download against a local server (opt-in)", FtpIntegration)
         };
 
@@ -895,6 +896,41 @@ internal static class Program
         service.Clear();
         status = await service.CheckAsync();
         Assert.Equal(LicenseState.NotActivated, status.State);
+    }
+
+    private static Task AppKeyOverride()
+    {
+        // The compiled key is used when there is no override.
+        Assert.Equal(LicenseConfiguration.AppKey, LicenseConfiguration.EffectiveAppKey);
+        Assert.True(LicenseConfiguration.EffectiveAppKey.StartsWith("appk_", StringComparison.Ordinal),
+            "the compiled app key does not look like an app key");
+
+        // A file next to the executable replaces it, so a build that was
+        // packaged with an incomplete key can be repaired without a rebuild.
+        string path = AppKeyStore.FilePath;
+        bool existed = File.Exists(path);
+        string? previous = existed ? File.ReadAllText(path) : null;
+
+        try
+        {
+            Assert.True(AppKeyStore.TrySave("appk_probe_1234567890abcdef", out string? error),
+                $"the app key could not be saved: {error}");
+
+            Assert.Equal("appk_probe_1234567890abcdef", LicenseConfiguration.EffectiveAppKey);
+            Assert.Equal("appk_probe_1234567890abcdef", AppKeyStore.Current);
+
+            Assert.True(AppKeyStore.TryClear(out string? clearError), $"the app key could not be cleared: {clearError}");
+            Assert.Equal(LicenseConfiguration.AppKey, LicenseConfiguration.EffectiveAppKey);
+        }
+        finally
+        {
+            if (previous is not null)
+                File.WriteAllText(path, previous);
+            else if (File.Exists(path))
+                File.Delete(path);
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Task DeviceIdentityTests()
