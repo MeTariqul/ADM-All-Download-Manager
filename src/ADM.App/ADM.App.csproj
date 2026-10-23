@@ -10,7 +10,7 @@
     <AssemblyName>ADM</AssemblyName>
     <Product>ADM All Download Manager</Product>
     <AssemblyTitle>ADM All Download Manager</AssemblyTitle>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
