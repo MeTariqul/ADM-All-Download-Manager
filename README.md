@@ -1,13 +1,15 @@
 # ADM — All Download Manager
 
 A Windows download manager built with **.NET 8** and **WPF**, with a segmented
-HTTP engine, a browser extension, and a per-user installer. It is an IDM-style
+HTTP engine, a browser extension, and a Windows installer. It is an IDM-style
 desktop app: multiple connections per file, pause/resume across restarts,
 download queues, a speed limiter, and browser download capture. Video and audio
 pages are handled by the bundled **yt-dlp** engine, so YouTube and many other
 sites download as complete MP4/MKV/MP3 files instead of separate streams.
 
-![ADM minimal UI](docs/screenshot.png)
+![ADM 1.2.0 workspace](docs/screenshot.png)
+
+*ADM 1.2.0 workspace with the final silver, navy and cyan ADM brand.*
 
 ## Features
 
@@ -139,8 +141,8 @@ Output goes to `artifacts\publish\` (`app`, `native`, `extension`) and
 `artifacts\installer\`. The build copies `yt-dlp.exe`, `ffmpeg.exe`, and
 `ffprobe.exe` into `artifacts\publish\app\tools\`; missing tools are downloaded
 into `vendor\` first, so the installed app does not depend on PATH. The installer
-is per-user (`PrivilegesRequired=lowest`), so it does not need administrator
-rights. The bundled ffmpeg build adds roughly 200 MB to the published folder.
+uses the folder selected during setup. The bundled ffmpeg build adds roughly
+200 MB to the published folder.
 
 The installer is produced by [Inno Setup 6](https://jrsoftware.org/isinfo.php).
 `build.ps1` looks for `ISCC.exe` in the per-user and per-machine locations; when
@@ -189,7 +191,8 @@ Temporary add-ons last until Firefox closes; permanent installation requires
 Mozilla signing.
 
 See [`extension/README.md`](extension/README.md) for extension behaviour and
-development details.
+development details. ADM 1.2.0 release notes and production checks are in
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ## Project layout
 
@@ -297,7 +300,7 @@ Settings can be changed in the app (gear icon): folder, connections per
 download, simultaneous downloads, speed limit, auto-resume, start with Windows,
 delete confirmation, proxy and credentials, cookie header, clipboard monitor,
 disk-space check, duplicate and file-exists policies, retry policy, schedule,
-notifications, dark theme and the diagnostics log. The settings window also
+notifications, the ADM light theme and the diagnostics log. The settings window also
 reports whether yt-dlp and ffmpeg were found and can update yt-dlp.
 
 ### Closing the window

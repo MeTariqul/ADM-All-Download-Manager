@@ -9,8 +9,9 @@ native messaging host.
    for Chrome, Edge, Brave and Chromium (per-user registry, no admin needed).
 2. Open `chrome://extensions` (or `edge://extensions`).
 3. Enable **Developer mode**.
-4. Click **Load unpacked** and select this `extension` folder (normally
-   `%LOCALAPPDATA%\Programs\ADM\extension`).
+4. Click **Load unpacked** and select the installed `extension` folder under
+   the ADM installation directory (for the default installed build:
+   `C:\Program Files\ADM\extension`).
 5. Open the extension. The header should show **ADM ready**. If it shows
    **ADM not running**, click **Open ADM** to start the desktop app. If it shows
    **Extension not connected**, reinstall ADM or register the host with

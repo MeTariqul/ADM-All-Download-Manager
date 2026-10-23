@@ -16,6 +16,8 @@ is an initial design sketch and predates much of the current implementation.
 - [x] Summarize runtime mode, version, and signing outcome after publishing.
 - [x] Add a repeatable build, install, browser, and uninstall checklist in
   [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
+- [x] Apply the final ADM logo and its silver, navy and cyan light theme across
+  the desktop app, installer and browser extension.
 - [ ] Run the checklist on clean Windows 10 and Windows 11 systems before a public release.
 
 ### Download recovery and data integrity
@@ -35,7 +37,7 @@ is an initial design sketch and predates much of the current implementation.
 ### Download workflow
 
 - [x] Use status colors for row state and expose the full error as a tooltip/help text when the row is truncated.
-- [ ] Check keyboard navigation, high-DPI scaling, dark theme contrast, and narrow layouts on Windows.
+- [ ] Check keyboard navigation, high-DPI scaling, light-theme contrast, and narrow layouts on Windows.
 
 ### Diagnostics and maintenance
 
