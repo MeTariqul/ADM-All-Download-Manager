@@ -134,6 +134,61 @@ public partial class MainWindow : Window
             viewModel.Selection.Add(item);
     }
 
+    private void OnDownloadListDoubleClick(object sender, MouseButtonEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+            return;
+
+        var item = DownloadList.SelectedItem as Adm.Core.Models.DownloadItem;
+        if (item is null)
+            return;
+
+        if (item.Status == Adm.Core.Models.DownloadStatus.Completed)
+        {
+            viewModel.OpenFileCommand.Execute(item);
+        }
+        else
+        {
+            viewModel.ShowOptionsCommand.Execute(item);
+        }
+    }
+
+    private void OnDownloadListKeyDown(object sender, KeyEventArgs e)
+    {
+        if (DataContext is not MainViewModel viewModel)
+            return;
+
+        var selected = viewModel.Selection.ToList();
+        if (selected.Count == 0)
+            return;
+
+        if (e.Key == Key.Delete)
+        {
+            viewModel.RemoveCommand.Execute(selected);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Space)
+        {
+            if (selected.Any(i => i.CanPause))
+                viewModel.PauseCommand.Execute(selected);
+            else if (selected.Any(i => i.CanResume))
+                viewModel.ResumeCommand.Execute(selected);
+            e.Handled = true;
+        }
+        else if (e.Key == Key.Enter)
+        {
+            var first = selected.FirstOrDefault();
+            if (first is not null)
+            {
+                if (first.Status == Adm.Core.Models.DownloadStatus.Completed)
+                    viewModel.OpenFileCommand.Execute(first);
+                else
+                    viewModel.ShowOptionsCommand.Execute(first);
+            }
+            e.Handled = true;
+        }
+    }
+
     private void OnClosed(object? sender, EventArgs e)
     {
         if (DataContext is MainViewModel viewModel)

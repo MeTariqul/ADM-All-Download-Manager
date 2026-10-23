@@ -68,10 +68,10 @@ internal sealed class Segment
     }
 
     /// <summary>
-    /// Shrinks this segment to its first half and returns the previous end so the
-    /// coordinator can create a second segment for the remainder.
+    /// Shrinks this segment to its first half and returns (midPoint, oldEnd) so the
+    /// coordinator can immediately create a second segment for [midPoint + 1 .. oldEnd].
     /// </summary>
-    public long? TryShrink(long minimumRemaining)
+    public (long Mid, long OldEnd)? TryShrink(long minimumRemaining)
     {
         lock (_sync)
         {
@@ -83,8 +83,9 @@ internal sealed class Segment
                 return null;
 
             long oldEnd = _end;
-            _end = _position + remaining / 2;
-            return oldEnd;
+            long mid = _position + (remaining / 2);
+            _end = mid;
+            return (mid, oldEnd);
         }
     }
 }

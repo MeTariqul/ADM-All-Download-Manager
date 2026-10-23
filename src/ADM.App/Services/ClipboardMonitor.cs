@@ -65,27 +65,35 @@ public sealed class ClipboardMonitor : IDisposable
         }
     }
 
-    /// <summary>Returns the first http or https link in the text, if there is one.</summary>
+    /// <summary>Returns the first http, https, ftp or ftps link in the text, if there is one.</summary>
     internal static string? ExtractUrl(string text)
     {
         string trimmed = text.Trim();
         if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
-            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("ftp://", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("ftps://", StringComparison.OrdinalIgnoreCase))
         {
             return trimmed;
         }
 
-        int index = trimmed.IndexOf("https://", StringComparison.OrdinalIgnoreCase);
-        if (index < 0)
-            index = trimmed.IndexOf("http://", StringComparison.OrdinalIgnoreCase);
-        if (index < 0)
+        string[] prefixes = ["https://", "http://", "ftps://", "ftp://"];
+        int bestIndex = -1;
+        foreach (var prefix in prefixes)
+        {
+            int index = trimmed.IndexOf(prefix, StringComparison.OrdinalIgnoreCase);
+            if (index >= 0 && (bestIndex < 0 || index < bestIndex))
+                bestIndex = index;
+        }
+
+        if (bestIndex < 0)
             return null;
 
-        int end = index;
+        int end = bestIndex;
         while (end < trimmed.Length && !char.IsWhiteSpace(trimmed[end]) && trimmed[end] != '"' && trimmed[end] != '\'')
             end++;
 
-        return trimmed[index..end].TrimEnd('.', ',', ';', ')', ']', '}');
+        return trimmed[bestIndex..end].TrimEnd('.', ',', ';', ')', ']', '}');
     }
 
     public void Dispose()

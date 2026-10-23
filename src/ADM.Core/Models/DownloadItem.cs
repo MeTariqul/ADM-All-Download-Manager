@@ -258,6 +258,9 @@ public sealed class DownloadItem : INotifyPropertyChanged
             if (IsActive && !string.IsNullOrWhiteSpace(EtaText))
                 parts.Add(EtaText);
 
+            if (IsActive && Segments.Count > 1)
+                parts.Add($"{Segments.Count} parts");
+
             if (ChecksumVerified == true)
                 parts.Add("Checksum OK");
             else if (ChecksumVerified == false)

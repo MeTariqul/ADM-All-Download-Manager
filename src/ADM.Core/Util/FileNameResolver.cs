@@ -71,7 +71,9 @@ public static class FileNameResolver
                 builder.Append(ch);
         }
 
-        var safe = builder.ToString().Trim();
+        // Windows ignores trailing dots/spaces in paths, so remove them before
+        // checking for an empty result and before measuring the final length.
+        var safe = builder.ToString().Trim().TrimEnd('.', ' ');
         if (string.IsNullOrWhiteSpace(safe) || safe == ".")
             safe = "download.bin";
 
@@ -85,7 +87,7 @@ public static class FileNameResolver
             safe = safe[..(180 - extension.Length)] + extension;
         }
 
-        return safe.TrimEnd('.', ' ');
+        return safe;
     }
 
     /// <summary>Returns a path that does not collide with an existing file or partial download.</summary>

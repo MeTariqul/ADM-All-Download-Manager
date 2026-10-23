@@ -197,7 +197,8 @@
 
                 <Grid Grid.Row="1">
                     <ListBox x:Name="DownloadList" ItemsSource="{Binding DownloadsView}" Style="{StaticResource DownloadList}"
-                             SelectionMode="Extended" SelectionChanged="OnSelectionChanged">
+                             SelectionMode="Extended" SelectionChanged="OnSelectionChanged"
+                             MouseDoubleClick="OnDownloadListDoubleClick" KeyDown="OnDownloadListKeyDown">
                         <ListBox.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Pause" Command="{Binding DataContext.PauseCommand, RelativeSource={RelativeSource AncestorType=Window}}" />

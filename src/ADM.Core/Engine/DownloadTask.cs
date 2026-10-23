@@ -19,7 +19,6 @@ public sealed class DownloadTask : IDownloadTask
     private readonly SpeedLimiter _limiter;
     private readonly List<Segment> _segments = new();
     private readonly Dictionary<Segment, Task> _workers = new();
-    private readonly List<PendingSplit> _pendingSplits = new();
     private readonly CancellationTokenSource _cts = new();
     private readonly object _lifecycleLock = new();
     private readonly Action? _onHeartbeat;
@@ -231,7 +230,10 @@ public sealed class DownloadTask : IDownloadTask
 
     private async Task TransferAsync(CancellationToken cancellationToken)
     {
-        _context = new TransferContext(_client, _item.Url, _item.TempPath,
+        using var fileHandle = File.OpenHandle(_item.TempPath, FileMode.OpenOrCreate, FileAccess.ReadWrite,
+            FileShare.ReadWrite, FileOptions.Asynchronous);
+
+        _context = new TransferContext(_client, _item.Url, _item.TempPath, fileHandle,
             _item.UserAgent ?? _settings.UserAgent, _item.Referrer, ParseIfRange(_item.ETag),
             _limiter, MaxRetries: ResolveMaxRetries(),
             Authorization: ResolveAuthorization(), Cookie: _item.Cookie);
@@ -241,28 +243,39 @@ public sealed class DownloadTask : IDownloadTask
 
         int ticks = 0;
 
-        while (_workers.Count > 0)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            await Task.Delay(250, cancellationToken).ConfigureAwait(false);
-
-            var faulted = _workers.FirstOrDefault(pair => pair.Value.IsFaulted);
-            if (faulted.Value is not null)
+            while (_workers.Count > 0)
             {
-                await faulted.Value.ConfigureAwait(false); // rethrows the worker exception
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Delay(250, cancellationToken).ConfigureAwait(false);
+
+                var faulted = _workers.FirstOrDefault(pair => pair.Value.IsFaulted);
+                if (faulted.Value is not null)
+                {
+                    await faulted.Value.ConfigureAwait(false); // rethrows the worker exception
+                }
+
+                foreach (var pair in _workers.Where(pair => pair.Value.IsCompleted).ToList())
+                    _workers.Remove(pair.Key);
+
+                SplitBusySegments(cancellationToken);
+                ReportProgress();
+
+                if (++ticks % 4 == 0)
+                {
+                    SnapshotSegments();
+                    _onHeartbeat?.Invoke();
+                }
             }
-
-            foreach (var pair in _workers.Where(pair => pair.Value.IsCompleted).ToList())
-                _workers.Remove(pair.Key);
-
-            StartPendingSplits(cancellationToken);
-            SplitBusySegments(cancellationToken);
-            ReportProgress();
-
-            if (++ticks % 8 == 0)
+        }
+        finally
+        {
+            var running = _workers.Values.ToArray();
+            if (running.Length > 0)
             {
-                SnapshotSegments();
-                _onHeartbeat?.Invoke();
+                try { await Task.WhenAll(running).ConfigureAwait(false); }
+                catch { /* primary failure already recorded */ }
             }
         }
 
@@ -279,15 +292,15 @@ public sealed class DownloadTask : IDownloadTask
 
     /// <summary>
     /// When some connections finish early, halve the largest remaining segment.
-    /// The old worker stops at the new boundary; the second half is handed to a
-    /// fresh worker once the old one has actually stopped (prevents overlapping writes).
+    /// The original worker stops at the midpoint; a fresh worker immediately begins
+    /// downloading the second half concurrently (true dynamic segmentation).
     /// </summary>
     private void SplitBusySegments(CancellationToken cancellationToken)
     {
         while (true)
         {
             int active = _workers.Count(pair => !pair.Value.IsCompleted);
-            if (active + _pendingSplits.Count >= _item.MaxConnections)
+            if (active >= _item.MaxConnections)
                 return;
 
             Segment? candidate = null;
@@ -296,9 +309,6 @@ public sealed class DownloadTask : IDownloadTask
             foreach (var segment in _segments)
             {
                 if (segment.End < 0)
-                    continue;
-
-                if (_pendingSplits.Any(p => ReferenceEquals(p.Segment, segment)))
                     continue;
 
                 if (!_workers.TryGetValue(segment, out var worker) || worker.IsCompleted)
@@ -315,34 +325,16 @@ public sealed class DownloadTask : IDownloadTask
             if (candidate is null || largestRemaining < SegmentPlanner.MinimumSegmentSize * 4)
                 return;
 
-            long? oldEnd = candidate.TryShrink(SegmentPlanner.MinimumSegmentSize * 2);
-            if (oldEnd is null)
+            var split = candidate.TryShrink(SegmentPlanner.MinimumSegmentSize * 2);
+            if (split is null)
                 return;
 
-            _pendingSplits.Add(new PendingSplit(candidate, oldEnd.Value));
-        }
-    }
+            var (mid, oldEnd) = split.Value;
+            long newStart = mid + 1;
+            if (newStart > oldEnd)
+                return;
 
-    private void StartPendingSplits(CancellationToken cancellationToken)
-    {
-        for (int i = _pendingSplits.Count - 1; i >= 0; i--)
-        {
-            var split = _pendingSplits[i];
-
-            // Wait until the original worker has stopped writing.
-            if (_workers.TryGetValue(split.Segment, out var worker) && !worker.IsCompleted)
-                continue;
-
-            _pendingSplits.RemoveAt(i);
-
-            long start = split.Segment.Position;
-            if (start > split.OldEnd)
-                continue;
-
-            if (split.OldEnd - start + 1 < SegmentPlanner.MinimumSegmentSize / 2)
-                continue;
-
-            var extra = new Segment(start, split.OldEnd, start);
+            var extra = new Segment(newStart, oldEnd, newStart);
             _segments.Add(extra);
             _workers[extra] = SegmentWorker.RunAsync(extra, _context!, cancellationToken);
         }
@@ -541,6 +533,4 @@ public sealed class DownloadTask : IDownloadTask
             ? new RangeConditionHeaderValue(value)
             : null;
     }
-
-    private sealed record PendingSplit(Segment Segment, long OldEnd);
 }
