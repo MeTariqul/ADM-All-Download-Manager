@@ -4,6 +4,15 @@ Use this checklist for each Windows release. The product version comes from
 `Directory.Build.props`; `build.ps1` passes it to Inno Setup and checks required
 publish files before attempting to package them.
 
+## ADM 1.2.0 release record
+
+- Final installer: `artifacts\installer\ADM-Setup-1.2.0.exe`
+- Runtime: Windows x64, self-contained single-file desktop application
+- Branding: final ADM logo with transparent rounded corners in the app, tray,
+  shortcuts, installer and browser extension
+- Validation: engine harness passed; publish and Inno Setup packaging succeeded
+- Signing: unsigned
+
 ## Build and package
 
 - [ ] Start from a clean checkout and confirm the intended version in `Directory.Build.props`.
@@ -28,6 +37,12 @@ not replace the fresh-install check below.
 - [ ] Repeat the popup handoff check in Firefox using `manifest.firefox.json` as a temporary add-on.
 - [ ] Confirm failed handoff leaves the browser download available and the popup explains how to reconnect.
 - [ ] Uninstall ADM and confirm its per-user native host registrations are removed.
+
+### Branding check
+
+- [ ] Confirm the desktop and Start Menu shortcuts use `{app}\app.ico` after
+  install or update.
+- [ ] Confirm the taskbar, tray and application workspace show the final ADM logo.
 
 ## Release notes and support
 
