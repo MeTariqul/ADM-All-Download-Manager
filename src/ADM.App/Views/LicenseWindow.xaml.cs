@@ -14,8 +14,9 @@ public partial class LicenseWindow : Window
     private readonly LicenseService _license;
     private bool _busy;
     private bool _refused;
+    private bool _requestBusy;
 
-    public LicenseWindow(LicenseService license)
+    public LicenseWindow(LicenseService license, LicenseTrialStatus? trial = null)
     {
         InitializeComponent();
         _license = license;
@@ -31,6 +32,29 @@ public partial class LicenseWindow : Window
         // length of the app key says nothing about whether it is right, so a
         // warning based on it would be a guess.
         AppKeyWarning.Visibility = Visibility.Collapsed;
+
+        if (trial is not null)
+        {
+            TrialPanel.Visibility = Visibility.Visible;
+            if (trial.IsActive)
+            {
+                int days = Math.Max(1, (int)Math.Ceiling(trial.Remaining.TotalDays));
+                TrialText.Text = $"Your seven-day trial is active. {days} day(s) remain, until " +
+                                 $"{trial.EndsAt?.LocalDateTime.ToString("d MMM yyyy h:mm tt")}. " +
+                                 "Activate a key any time, or choose Continue trial to use ADM.";
+                CloseButton.Content = "Continue trial";
+            }
+            else
+            {
+                TrialText.Text = "Your seven-day trial has ended. Request a key below to keep using ADM.";
+            }
+
+            Closing += (_, _) =>
+            {
+                if (trial.IsActive)
+                    UserCancelled = true;
+            };
+        }
 
         Loaded += OnLoaded;
     }
@@ -111,6 +135,50 @@ public partial class LicenseWindow : Window
             _busy = false;
             ActivateButton.IsEnabled = true;
             ActivateButton.Content = "Activate";
+        }
+    }
+
+    private async void OnRequestKey(object sender, RoutedEventArgs e)
+    {
+        if (_requestBusy)
+            return;
+
+        string email = EmailBox.Text.Trim();
+        if (!System.Net.Mail.MailAddress.TryCreate(email, out _))
+        {
+            StatusText.Text = "Enter a valid email address to request a key.";
+            return;
+        }
+
+        _requestBusy = true;
+        RequestKeyButton.IsEnabled = false;
+        RequestKeyButton.Content = "Sending...";
+        try
+        {
+            LicenseRequestResult result = await _license.RequestKeyAsync(email);
+            if (!result.Ok)
+            {
+                StatusText.Text = result.Error ?? "The key request could not be completed.";
+            }
+            else if (!string.IsNullOrWhiteSpace(result.Key))
+            {
+                KeyBox.Text = result.Key;
+                StatusText.Text = "Your key is ready. Review it above and select Activate.";
+            }
+            else
+            {
+                StatusText.Text = "Request received. Check your email for the licence key.";
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "The key request failed: " + ex.Message;
+        }
+        finally
+        {
+            _requestBusy = false;
+            RequestKeyButton.IsEnabled = true;
+            RequestKeyButton.Content = "Request key";
         }
     }
 

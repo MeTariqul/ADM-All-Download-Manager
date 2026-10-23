@@ -7,7 +7,6 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Adm.NativeHost</RootNamespace>
     <AssemblyName>ADM.NativeHost</AssemblyName>
-    <Version>1.0.0</Version>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
 

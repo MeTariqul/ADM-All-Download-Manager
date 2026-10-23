@@ -10,7 +10,6 @@
     <AssemblyName>ADM</AssemblyName>
     <Product>ADM All Download Manager</Product>
     <AssemblyTitle>ADM All Download Manager</AssemblyTitle>
-    <Version>1.2.0</Version>
     <ApplicationIcon>app.ico</ApplicationIcon>
     <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
   </PropertyGroup>
@@ -22,6 +21,7 @@
   <ItemGroup>
     <!-- Embedded so the notification-area icon can be loaded at runtime. -->
     <Resource Include="app.ico" />
+    <Resource Include="brand.png" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 using Adm.Core.Models;
@@ -12,6 +13,10 @@ public sealed class CategoryGlyphConverter : IValueConverter
     {
         return (value as string)?.ToLowerInvariant() switch
         {
+            "all" => "◈",
+            "active" => "↗",
+            "completed" => "✓",
+            "paused" => "Ⅱ",
             "video" => "▶",
             "music" => "♪",
             "documents" => "▤",
@@ -29,32 +34,37 @@ public sealed class CategoryGlyphConverter : IValueConverter
 /// <summary>Colors progress bars and status accents based on download state.</summary>
 public sealed class StatusBrushConverter : IValueConverter
 {
-    private static readonly Brush Accent = Frozen("#111318");
-    private static readonly Brush Success = Frozen("#16A34A");
-    private static readonly Brush Danger = Frozen("#DC2626");
-    private static readonly Brush Muted = Frozen("#9AA0AA");
-
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
         return value is DownloadStatus status
             ? status switch
             {
-                DownloadStatus.Completed => Success,
-                DownloadStatus.Failed => Danger,
-                DownloadStatus.Paused => Muted,
-                DownloadStatus.Queued => Muted,
-                _ => Accent
+                DownloadStatus.Completed => ThemeBrush("SuccessBrush", "#168568"),
+                DownloadStatus.Failed => ThemeBrush("DangerBrush", "#C64F5A"),
+                DownloadStatus.Paused => ThemeBrush("TextMutedBrush", "#849892"),
+                DownloadStatus.Queued => ThemeBrush("TextMutedBrush", "#849892"),
+                _ => ThemeBrush("AccentBrush", "#087EA4")
             }
-            : Accent;
+            : ThemeBrush("AccentBrush", "#087EA4");
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) =>
         throw new NotSupportedException();
 
-    private static Brush Frozen(string hex)
+    private static Brush ThemeBrush(string key, string fallback)
     {
-        var brush = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex));
-        brush.Freeze();
+        var brush = Application.Current?.TryFindResource(key) as Brush ??
+                    new SolidColorBrush((Color)ColorConverter.ConvertFromString(fallback));
+        if (brush.IsFrozen)
+            return brush;
+
+        if (brush is SolidColorBrush solidBrush && !solidBrush.IsFrozen)
+        {
+            solidBrush = solidBrush.Clone();
+            solidBrush.Freeze();
+            return solidBrush;
+        }
+
         return brush;
     }
 }

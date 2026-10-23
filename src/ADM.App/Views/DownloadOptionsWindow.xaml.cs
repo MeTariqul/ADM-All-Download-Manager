@@ -25,7 +25,7 @@ public partial class DownloadOptionsWindow : Window
         new(Color.FromRgb(59, 130, 246)),  // Blue
         new(Color.FromRgb(16, 185, 129)),  // Emerald
         new(Color.FromRgb(139, 92, 246)),  // Violet
-        new(Color.FromRgb(245, 158, 11)),  // Amber
+        new(Color.FromRgb(8, 126, 164)),   // ADM blue
         new(Color.FromRgb(236, 72, 153)),  // Pink
         new(Color.FromRgb(6, 182, 212)),   // Cyan
         new(Color.FromRgb(249, 115, 22)),  // Orange

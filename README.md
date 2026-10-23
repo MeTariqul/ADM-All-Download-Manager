@@ -39,7 +39,7 @@ sites download as complete MP4/MKV/MP3 files instead of separate streams.
 - **Notifications** — a notification when a download finishes or fails, with an
   optional "open the file" and "quit when the queue is empty".
 - **Diagnostics log** — a rolling log in `%APPDATA%\ADM\adm.log` for support.
-- **Dark theme** — a dark colour scheme next to the light one.
+- **ADM light theme** — a silver, navy and cyan interface derived from the ADM logo.
 - **Video and audio downloads** — paste a YouTube/Vimeo/Twitch/etc. page or click
   the **Download** button attached to the playing video. A picker shows every
   available resolution, container (MP4/MKV), audio-only M4A and MP3. Video-only
@@ -58,6 +58,9 @@ sites download as complete MP4/MKV/MP3 files instead of separate streams.
   area, so downloads continue and the browser extension stays reachable. The
   tray icon has **Show ADM**, **Pause all**, **Resume all** and **Exit ADM**.
 - **Minimal light UI** — quiet layout, hairline rows, keyboard-friendly quick add.
+
+See [`docs/FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md) for the IDM-style
+capability audit and the next feature work.
 
 ## Requirements
 
@@ -142,11 +145,16 @@ rights. The bundled ffmpeg build adds roughly 200 MB to the published folder.
 The installer is produced by [Inno Setup 6](https://jrsoftware.org/isinfo.php).
 `build.ps1` looks for `ISCC.exe` in the per-user and per-machine locations; when
 Inno Setup is missing the publish still succeeds and only the installer step is
-skipped. The script uses only plain Pascal Script, so it compiles with any
-Inno Setup 6 release.
+skipped. The product version is defined once in `Directory.Build.props` and is
+passed to the installer by the build script. After installing Inno Setup, rerun
+`build.ps1` to produce a version-matched installer.
 
-The app is not code-signed; Windows SmartScreen may show a warning for builds
-you produced yourself.
+The app is not code-signed unless a certificate is supplied to `build.ps1`;
+Windows SmartScreen may show a warning for unsigned builds. See
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release and
+fresh-install checklist. The current engineering priorities are in
+[`docs/UPDATE_PLAN.md`](docs/UPDATE_PLAN.md); the original design sketch is
+kept for historical context.
 
 ## Browser extension
 
@@ -225,7 +233,9 @@ build.ps1              Test + publish + installer pipeline
   and leaves a small margin so the system stays usable.
 - `Checksum.Compute` hashes the finished file and compares it with the expected
   value; the result is shown in the list.
-- `DiagnosticsLog` writes a rolling log to `%APPDATA%\ADM\adm.log`.
+- `DiagnosticsLog` writes a rolling log to `%APPDATA%\ADM\adm.log` and keeps
+  one rotated copy at `adm.log.1`. Download diagnostics record only the URL
+  origin; credentials, path, query, and fragment are omitted.
 
 ### The notification-area icon
 

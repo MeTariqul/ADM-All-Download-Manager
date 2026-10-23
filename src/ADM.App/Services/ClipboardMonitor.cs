@@ -55,7 +55,7 @@ public sealed class ClipboardMonitor : IDisposable
             string? url = ExtractUrl(text);
             if (url is not null)
             {
-                DiagnosticsLog.Info($"Clipboard link detected: {url}");
+                DiagnosticsLog.Info($"Clipboard link detected for {DiagnosticsLog.SafeEndpoint(url)}.");
                 LinkFound?.Invoke(this, url);
             }
         }

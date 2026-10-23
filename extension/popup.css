@@ -6,7 +6,7 @@
   --border: #212a38;
   --text: #e9edf5;
   --muted: #8a94a6;
-  --accent: #4a84f5;
+  --accent: #087ea4;
   --success: #3dd68c;
   --danger: #ff6b6b;
 }
@@ -42,13 +42,8 @@ body {
   width: 36px;
   height: 36px;
   border-radius: 9px;
-  background: var(--accent);
-  color: white;
-  font-size: 23px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  object-fit: cover;
+  flex: 0 0 36px;
 }
 
 .title {

@@ -97,7 +97,8 @@
                     </Grid.ColumnDefinitions>
 
                     <TextBox x:Name="ChecksumBox" Style="{StaticResource InputBox}" />
-                    <ComboBox x:Name="ChecksumAlgorithmBox" Grid.Column="1" Width="110" Margin="8,0,0,0"
+                    <ComboBox x:Name="ChecksumAlgorithmBox" Style="{StaticResource InputComboBox}"
+                              Grid.Column="1" Width="110" Margin="8,0,0,0"
                               VerticalAlignment="Center" />
                 </Grid>
             </StackPanel>

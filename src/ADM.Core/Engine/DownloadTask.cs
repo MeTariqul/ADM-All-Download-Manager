@@ -210,7 +210,12 @@ public sealed class DownloadTask : IDownloadTask
         if (!probe.SupportsRanges || probe.TotalBytes != _item.TotalBytes)
             return false;
 
-        if (!string.Equals(_item.ETag, probe.ETag, StringComparison.Ordinal) && probe.ETag is not null)
+        bool hasStrongETag = ParseIfRange(_item.ETag) is not null;
+        bool validatorMatches = hasStrongETag
+            ? string.Equals(_item.ETag, probe.ETag, StringComparison.Ordinal)
+            : !string.IsNullOrWhiteSpace(_item.LastModified) &&
+              string.Equals(_item.LastModified, probe.LastModified, StringComparison.Ordinal);
+        if (!validatorMatches)
             return false;
 
         _streaming = false;

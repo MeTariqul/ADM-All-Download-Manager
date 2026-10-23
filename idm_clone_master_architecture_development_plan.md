@@ -1,5 +1,9 @@
 # Master Plan: Next-Gen Download Manager (IDM Clone)
 
+> **Historical design sketch:** ADM has since grown beyond the implementation
+> phases described here. Use [`docs/UPDATE_PLAN.md`](docs/UPDATE_PLAN.md) for the
+> current work plan and [`README.md`](README.md) for the implemented features.
+
 ## 1. Project Overview
 The goal is to build a high-performance download manager that accelerates downloads by splitting files into dynamic segments, features a modern UI, integrates seamlessly with browsers to capture download links (and media), and is packaged as a standalone `.exe` installer.
 

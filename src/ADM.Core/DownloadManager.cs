@@ -200,7 +200,9 @@ public sealed class DownloadManager : IDisposable
         if (string.Equals(id, "download.bin", StringComparison.OrdinalIgnoreCase))
             id = string.Empty;
 
-        string baseName = string.IsNullOrWhiteSpace(id) ? title : $"{title} [{id}]";
+        string baseName = string.IsNullOrWhiteSpace(options?.FileName)
+            ? string.IsNullOrWhiteSpace(id) ? title : $"{title} [{id}]"
+            : Path.GetFileNameWithoutExtension(FileNameResolver.Sanitize(options.FileName));
         string extension = string.IsNullOrWhiteSpace(format.Extension) ? "mp4" : format.Extension!;
         string filePath = UniqueVideoPath(folder, baseName, extension);
 
@@ -222,7 +224,9 @@ public sealed class DownloadManager : IDisposable
                 : $"{format.ResolutionText} · {format.FormatText}",
             VideoMergeContainer = format.MergeContainer,
             VideoAudioOnly = format.IsAudioOnly,
-            VideoConvertToMp3 = format.ConvertToMp3
+            VideoConvertToMp3 = format.ConvertToMp3,
+            ExpectedChecksum = options?.ExpectedChecksum,
+            ChecksumAlgorithm = options?.ChecksumAlgorithm ?? ChecksumAlgorithm.None
         };
 
         item.PropertyChanged += OnItemPropertyChanged;
@@ -540,7 +544,7 @@ public sealed class DownloadManager : IDisposable
             {
                 item.Status = DownloadStatus.Failed;
                 item.ErrorMessage = spaceWarning;
-                DiagnosticsLog.Warn($"Download of {item.Url} stopped: {spaceWarning}");
+                DiagnosticsLog.Warn($"Download from {DiagnosticsLog.SafeEndpoint(item.Url)} stopped: {spaceWarning}");
                 return;
             }
 
@@ -554,7 +558,9 @@ public sealed class DownloadManager : IDisposable
         {
             item.Status = DownloadStatus.Failed;
             item.ErrorMessage = ex.Message;
-            DiagnosticsLog.Error($"Download of {item.Url} failed.", ex);
+            // Exception messages from HTTP stacks can contain full URLs, including
+            // signed query strings. Keep details in the UI item and log only the type.
+            DiagnosticsLog.Error($"Download from {DiagnosticsLog.SafeEndpoint(item.Url)} failed ({ex.GetType().Name}).");
 
             if (ShouldRetry(item))
                 ScheduleRetry(item);
@@ -596,7 +602,7 @@ public sealed class DownloadManager : IDisposable
         item.RetryNotBefore = DateTimeOffset.Now.AddSeconds(seconds);
 
         DiagnosticsLog.Info(
-            $"Retrying {item.Url} in {seconds} s (attempt {item.RetryCount + 1} of {_settings.MaxRetries + 1}).");
+            $"Retrying {DiagnosticsLog.SafeEndpoint(item.Url)} in {seconds} s (attempt {item.RetryCount + 1} of {_settings.MaxRetries + 1}).");
     }
 
     /// <summary>

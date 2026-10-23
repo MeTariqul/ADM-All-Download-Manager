@@ -4,6 +4,7 @@ using System.Text;
 using Adm.Core.Engine;
 using Adm.Core.Models;
 using Adm.Core.Settings;
+using Adm.Core.Util;
 
 namespace Adm.Core.Media;
 
@@ -355,6 +356,25 @@ public sealed class YtDlpDownloadTask : IDownloadTask
         {
             Fail("yt-dlp finished, but the output file could not be found.");
             return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_item.ExpectedChecksum) &&
+            _item.ChecksumAlgorithm != ChecksumAlgorithm.None)
+        {
+            try
+            {
+                string actual = Checksum.Compute(finalPath, _item.ChecksumAlgorithm);
+                if (!string.Equals(actual, _item.ExpectedChecksum.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    Fail($"Checksum mismatch. Expected {_item.ExpectedChecksum.Trim()}, got {actual}.");
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Fail("Could not verify the downloaded file checksum: " + ex.Message);
+                return;
+            }
         }
 
         try

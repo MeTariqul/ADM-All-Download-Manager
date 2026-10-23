@@ -1,5 +1,6 @@
 using System.IO;
 using System.Windows;
+using System.Windows.Threading;
 using Adm.App.Services;
 using Adm.App.ViewModels;
 using Adm.App.Views;
@@ -24,6 +25,8 @@ public partial class App : Application
     private SettingsStore? _settingsStore;
     private PipeServer? _pipeServer;
     private LicenseService? _license;
+    private DispatcherTimer? _trialTimer;
+    private bool _runningOnTrial;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -70,15 +73,34 @@ public partial class App : Application
                 ? settings.CookiesFromBrowser
                 : null;
 
-            ThemeManager.Apply(settings.DarkTheme);
-
             _viewModel = new MainViewModel(_manager, settingsStore);
             var window = new MainWindow { DataContext = _viewModel };
             MainWindow = window;
             window.Show();
 
+            if (_runningOnTrial)
+                StartTrialMonitor(window);
+
             _pipeServer = new PipeServer(HandlePipeMessage);
             _pipeServer.Start();
+
+            if (!settings.ExtensionSetupShown)
+            {
+                var setupWindow = new ExtensionSetupWindow(ExtensionSetupWindow.ResolveExtensionDirectory())
+                {
+                    Owner = window
+                };
+                setupWindow.ShowDialog();
+                settings.ExtensionSetupShown = true;
+                try
+                {
+                    settingsStore.Save(settings);
+                }
+                catch (Exception ex)
+                {
+                    DiagnosticsLog.Info("Could not save the extension setup prompt state: " + ex.Message);
+                }
+            }
 
             _ = AutoUpdateVideoEngineAsync();
             _ = CheckForAppUpdateAsync();
@@ -150,7 +172,9 @@ public partial class App : Application
 
         while (true)
         {
-            var status = await _license.CheckAsync().ConfigureAwait(false);
+            // Keep the WPF startup continuation on the dispatcher; the next
+            // step may need to show the activation dialog.
+            var status = await _license.CheckAsync();
 
             if (status.CanRun)
             {
@@ -160,17 +184,26 @@ public partial class App : Application
 
             DiagnosticsLog.Info("Licence state: " + status.SummaryText + " - " + status.Message);
 
+            LicenseTrialStatus trial = _license.GetTrialStatus();
+
             // The activation window is the only thing the user can act on.
-            var window = new LicenseWindow(_license);
+            var window = new LicenseWindow(_license, trial);
             window.ShowDialog();
 
             if (window.DialogResult == true)
                 return true;
 
+            if (trial.IsActive && window.UserCancelled)
+            {
+                _runningOnTrial = true;
+                DiagnosticsLog.Info($"ADM continued in trial mode; {trial.Remaining.TotalHours:F0} hours remain.");
+                return true;
+            }
+
             // The window was closed without a licence. The app may only
             // continue when the user chooses to quit.
             var answer = MessageBox.Show(
-                "ADM needs a valid licence to run.\n\nClose ADM now?",
+                "ADM needs a valid licence or an unexpired trial to run.\n\nClose ADM now?",
                 "ADM",
                 MessageBoxButton.YesNo,
                 MessageBoxImage.Question);
@@ -183,6 +216,29 @@ public partial class App : Application
 
             // Stay in the loop: the activation window comes up again.
         }
+    }
+
+    private void StartTrialMonitor(Window owner)
+    {
+        _trialTimer = new DispatcherTimer { Interval = TimeSpan.FromMinutes(1) };
+        _trialTimer.Tick += (_, _) =>
+        {
+            if (_license?.GetTrialStatus().IsActive == true)
+                return;
+
+            _trialTimer.Stop();
+            DiagnosticsLog.Info("ADM trial has ended while the app was running.");
+            var activation = new LicenseWindow(_license!, LicenseTrialStatus.Expired) { Owner = owner };
+            activation.ShowDialog();
+            if (activation.DialogResult == true)
+            {
+                _runningOnTrial = false;
+                return;
+            }
+
+            Shutdown();
+        };
+        _trialTimer.Start();
     }
 
     /// <summary>
@@ -373,6 +429,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _pipeServer?.Dispose();
+        _trialTimer?.Stop();
         _viewModel?.Dispose();
         _manager?.Dispose();
 

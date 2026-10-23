@@ -115,7 +115,7 @@ internal static class Program
             if (bulkReply is null)
             {
                 LaunchApp(null);
-                bulkReply = await PipeClient.SendAsync(bulkMessage, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+                bulkReply = await PipeClient.SendAsync(bulkMessage, TimeSpan.FromMinutes(3)).ConfigureAwait(false);
             }
 
             return bulkReply is null
@@ -141,7 +141,7 @@ internal static class Program
                 // the picker. Passing the URL would make the app act on it
                 // twice, once at startup and once through the pipe.
                 LaunchApp(null);
-                videoReply = await PipeClient.SendAsync(videoMessage, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+                videoReply = await PipeClient.SendAsync(videoMessage, TimeSpan.FromMinutes(3)).ConfigureAwait(false);
             }
 
             return videoReply is null
@@ -167,7 +167,7 @@ internal static class Program
         if (reply is null)
         {
             LaunchApp(request.Url);
-            reply = await PipeClient.SendAsync(message, TimeSpan.FromSeconds(20)).ConfigureAwait(false);
+            reply = await PipeClient.SendAsync(message, TimeSpan.FromMinutes(3)).ConfigureAwait(false);
         }
 
         return reply is null
