@@ -12,7 +12,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\artifacts\installer
 OutputBaseFilename=ADM-Setup-{#AppVersion}
 SetupIconFile=..\src\ADM.App\app.ico
-UninstallDisplayIcon={app}\ADM.exe
+UninstallDisplayIcon={app}\app.ico
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
@@ -30,14 +30,15 @@ Name: "startup"; Description: "Start ADM when Windows starts"; GroupDescription:
 
 [Files]
 Source: "..\artifacts\publish\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "..\src\ADM.App\app.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\artifacts\publish\native\*"; DestDir: "{app}\native"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\extension\*"; DestDir: "{app}\extension"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\extension\README.md"; DestDir: "{app}\extension"; Flags: ignoreversion
 
 [Icons]
-Name: "{group}\ADM All Download Manager"; Filename: "{app}\ADM.exe"; IconFilename: "{app}\ADM.exe"; IconIndex: 0
+Name: "{group}\ADM All Download Manager"; Filename: "{app}\ADM.exe"; IconFilename: "{app}\app.ico"; IconIndex: 0
 Name: "{group}\Browser extension setup"; Filename: "{app}\extension\README.md"
-Name: "{autodesktop}\ADM All Download Manager"; Filename: "{app}\ADM.exe"; IconFilename: "{app}\ADM.exe"; IconIndex: 0; Tasks: desktopicon
+Name: "{autodesktop}\ADM All Download Manager"; Filename: "{app}\ADM.exe"; IconFilename: "{app}\app.ico"; IconIndex: 0; Tasks: desktopicon
 
 [Registry]
 ; Native messaging hosts, per user, for the Chromium family.
