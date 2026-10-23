@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Net;
 using System.Net.Http.Headers;
+using Microsoft.Win32.SafeHandles;
 using Adm.Core.Net;
 
 namespace Adm.Core.Engine;
@@ -9,6 +10,7 @@ internal sealed record TransferContext(
     HttpClient Client,
     string Url,
     string TempPath,
+    SafeFileHandle FileHandle,
     string? UserAgent,
     string? Referrer,
     RangeConditionHeaderValue? IfRange,
@@ -66,8 +68,7 @@ internal static class SegmentWorker
         if (streaming && restart)
         {
             segment.SetPosition(0);
-            using (var reset = new FileStream(context.TempPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite))
-                reset.SetLength(0);
+            RandomAccess.SetLength(context.FileHandle, 0);
         }
 
         long start = streaming ? 0 : segment.Position;
@@ -100,8 +101,6 @@ internal static class SegmentWorker
         }
 
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-        await using var file = new FileStream(context.TempPath, FileMode.OpenOrCreate, FileAccess.Write,
-            FileShare.ReadWrite, BufferSize, FileOptions.Asynchronous);
 
         var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
         long position = start;
@@ -128,8 +127,7 @@ internal static class SegmentWorker
 
                 await context.Limiter.ThrottleAsync(read, cancellationToken).ConfigureAwait(false);
 
-                file.Position = position;
-                await file.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+                await RandomAccess.WriteAsync(context.FileHandle, buffer.AsMemory(0, read), position, cancellationToken).ConfigureAwait(false);
 
                 position += read;
                 segment.SetPosition(position);

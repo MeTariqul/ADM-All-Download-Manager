@@ -106,6 +106,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
         _clipboard = new ClipboardMonitor();
         _clipboard.LinkFound += OnClipboardLink;
+        ApplyClipboardMonitoring();
 
         UpdateCounts();
     }

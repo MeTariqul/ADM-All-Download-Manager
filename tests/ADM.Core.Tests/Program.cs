@@ -59,6 +59,7 @@ internal static class Program
             ("the licence state machine works", LicenseServiceStates),
             ("the device id is stable", DeviceIdentityTests),
             ("the app key can be overridden at run time", AppKeyOverride),
+            ("dynamic segment shrinking covers remaining range", DynamicSegmentShrink),
             ("a live licence token verifies offline (opt-in)", LicenseLiveIntegration),
             ("FTP download against a local server (opt-in)", FtpIntegration)
         };
@@ -121,6 +122,8 @@ internal static class Program
 
         string sanitized = FileNameResolver.Sanitize("bad<>:|?*name.txt");
         Assert.False(sanitized.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0, "sanitized name still has invalid characters");
+        Assert.Equal("download.bin", FileNameResolver.Sanitize("...   "));
+        Assert.Equal("report.txt", FileNameResolver.Sanitize("report.txt. "));
 
         using var temp = new TempDirectory();
         string existing = Path.Combine(temp.Path, "report.pdf");
@@ -1048,6 +1051,29 @@ internal static class Program
 
         Assert.False(FtpUrl.TryParse("https://example.com/file.bin", out _), "an http address was accepted");
 
+        return Task.CompletedTask;
+    }
+
+    private static Task DynamicSegmentShrink()
+    {
+        var segment = new Segment(0, 10_000_000, 2_000_000);
+        var split = segment.TryShrink(1_000_000);
+        Assert.True(split.HasValue, "segment should be eligible for shrinking");
+        var (mid, oldEnd) = split!.Value;
+
+        Assert.Equal(10_000_000, oldEnd);
+        Assert.Equal(mid, segment.End);
+        Assert.Equal(2_000_000, segment.Position);
+
+        long newStart = mid + 1;
+        var extra = new Segment(newStart, oldEnd, newStart);
+        Assert.Equal(newStart, extra.Start);
+        Assert.Equal(oldEnd, extra.End);
+        Assert.Equal(newStart, extra.Position);
+
+        // Verify no overlap and complete coverage
+        Assert.Equal(extra.Start, segment.End + 1);
+        Assert.Equal(10_000_000, extra.End);
         return Task.CompletedTask;
     }
 
