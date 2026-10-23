@@ -1,8 +1,8 @@
 [Setup]
 AppId={{A1F74D1A-6F2B-4E54-9A4C-5B0A0D3C8E11}
 AppName=ADM All Download Manager
-AppVersion=1.1.0
-AppVerName=ADM All Download Manager 1.1.0
+AppVersion=1.2.0
+AppVerName=ADM All Download Manager 1.2.0
 AppPublisher=ADM
 DefaultDirName={autopf}\ADM
 DefaultGroupName=ADM
@@ -10,7 +10,7 @@ DisableProgramGroupPage=yes
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=..\artifacts\installer
-OutputBaseFilename=ADM-Setup-1.1.0
+OutputBaseFilename=ADM-Setup-1.2.0
 SetupIconFile=..\src\ADM.App\app.ico
 UninstallDisplayIcon={app}\ADM.exe
 Compression=lzma2/max
