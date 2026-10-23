@@ -1,44 +1,52 @@
 Add-Type -AssemblyName System.Drawing
 
-function New-AdmBitmap([int]$size) {
-    $bitmap = New-Object System.Drawing.Bitmap($size, $size)
-    $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-    $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::AntiAlias
-    $graphics.Clear([System.Drawing.Color]::Transparent)
-
-    $rect = New-Object System.Drawing.Rectangle(0, 0, $size, $size)
-    $brush = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
-        $rect,
-        [System.Drawing.Color]::FromArgb(94, 147, 255),
-        [System.Drawing.Color]::FromArgb(52, 94, 210),
-        [System.Drawing.Drawing2D.LinearGradientMode]::ForwardDiagonal)
-
-    $radius = [Math]::Max(2, [int]($size * 0.22))
-    $diameter = $radius * 2
-    $path = New-Object System.Drawing.Drawing2D.GraphicsPath
-    $path.AddArc(0, 0, $diameter, $diameter, 180, 90)
-    $path.AddArc($size - $diameter, 0, $diameter, $diameter, 270, 90)
-    $path.AddArc($size - $diameter, $size - $diameter, $diameter, $diameter, 0, 90)
-    $path.AddArc(0, $size - $diameter, $diameter, $diameter, 90, 90)
-    $path.CloseFigure()
-    $graphics.FillPath($brush, $path)
-
-    $font = New-Object System.Drawing.Font("Segoe UI", [Math]::Max(8, $size * 0.62), [System.Drawing.FontStyle]::Bold, [System.Drawing.GraphicsUnit]::Pixel)
-    $format = New-Object System.Drawing.StringFormat
-    $format.Alignment = [System.Drawing.StringAlignment]::Center
-    $format.LineAlignment = [System.Drawing.StringAlignment]::Center
-    $textRect = New-Object System.Drawing.RectangleF(0, 0, $size, $size)
-    $graphics.DrawString([char]0x2193, $font, [System.Drawing.Brushes]::White, $textRect, $format)
-
-    $font.Dispose()
-    $brush.Dispose()
-    $path.Dispose()
-    $graphics.Dispose()
-    return $bitmap
+$root = Split-Path -Parent $PSScriptRoot
+$sourcePath = Join-Path $root 'assets\adm-final-logo.jpg'
+if (-not (Test-Path -LiteralPath $sourcePath)) {
+    throw "The final logo source is missing: $sourcePath"
 }
 
-$root = Split-Path -Parent $PSScriptRoot
+function New-AdmBitmap([int]$size) {
+    $source = [System.Drawing.Image]::FromFile($sourcePath)
+    try {
+        $bitmap = New-Object System.Drawing.Bitmap($size, $size)
+        $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+        try {
+            $graphics.CompositingQuality = [System.Drawing.Drawing2D.CompositingQuality]::HighQuality
+            $graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
+            $graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
+            $graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
+
+            # Carve transparent rounded corners around every derived logo.
+            # This keeps the final mark clean in the taskbar, tray, shortcuts,
+            # installer and browser toolbar instead of showing a square image.
+            $radius = [Math]::Max(2, [int]($size * 0.16))
+            $diameter = $radius * 2
+            $clip = New-Object System.Drawing.Drawing2D.GraphicsPath
+            try {
+                $clip.AddArc(0, 0, $diameter, $diameter, 180, 90)
+                $clip.AddArc($size - $diameter, 0, $diameter, $diameter, 270, 90)
+                $clip.AddArc($size - $diameter, $size - $diameter, $diameter, $diameter, 0, 90)
+                $clip.AddArc(0, $size - $diameter, $diameter, $diameter, 90, 90)
+                $clip.CloseFigure()
+                $graphics.SetClip($clip)
+                $graphics.DrawImage($source, (New-Object System.Drawing.Rectangle(0, 0, $size, $size)))
+            }
+            finally {
+                $clip.Dispose()
+            }
+        }
+        finally {
+            $graphics.Dispose()
+        }
+
+        return $bitmap
+    }
+    finally {
+        $source.Dispose()
+    }
+}
+
 $extensionIcons = Join-Path $root 'extension\icons'
 New-Item -ItemType Directory -Force $extensionIcons | Out-Null
 
@@ -48,7 +56,12 @@ foreach ($size in 16, 32, 48, 128) {
     $bitmap.Dispose()
 }
 
-# Multi-resolution .ico with PNG-compressed frames (Windows Vista and later).
+$brandPath = Join-Path $root 'src\ADM.App\brand.png'
+$brandBitmap = New-AdmBitmap 128
+$brandBitmap.Save($brandPath, [System.Drawing.Imaging.ImageFormat]::Png)
+$brandBitmap.Dispose()
+
+# Multi-resolution .ico with PNG frames for Windows, shortcuts, taskbar and tray.
 $sizes = 16, 24, 32, 48, 64, 128, 256
 $frames = @()
 foreach ($size in $sizes) {
@@ -89,5 +102,6 @@ $writer.Flush()
 $writer.Dispose()
 $file.Dispose()
 
-Write-Output "Icons written to $extensionIcons"
-Write-Output "Application icon written to $iconPath"
+Write-Output "ADM final-logo assets written to $extensionIcons"
+Write-Output "ADM application logo written to $brandPath"
+Write-Output "ADM application icon written to $iconPath"

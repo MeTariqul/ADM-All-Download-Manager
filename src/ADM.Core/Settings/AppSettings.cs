@@ -7,6 +7,12 @@ public sealed class AppSettings
 {
     public string DownloadFolder { get; set; } = DefaultDownloadFolder();
 
+    /// <summary>Ask before starting a download unless that file type has saved preferences.</summary>
+    public bool AskBeforeDownload { get; set; } = true;
+
+    /// <summary>Saved destination and transfer preferences keyed by file extension.</summary>
+    public Dictionary<string, DownloadTypePreference> DownloadTypePreferences { get; set; } = new();
+
     /// <summary>Number of parallel connections used for a segmented download.</summary>
     public int MaxConnections { get; set; } = 8;
 
@@ -22,6 +28,9 @@ public sealed class AppSettings
 
     /// <summary>When enabled, the browser extension hands downloads to ADM automatically.</summary>
     public bool InterceptBrowserDownloads { get; set; } = true;
+
+    /// <summary>Whether the first-run browser extension setup guide has been shown.</summary>
+    public bool ExtensionSetupShown { get; set; }
 
     /// <summary>Show a confirmation before deleting a downloaded file from disk.</summary>
     public bool ConfirmBeforeDelete { get; set; } = true;
@@ -87,9 +96,6 @@ public sealed class AppSettings
     /// <summary>Write a diagnostics log next to the settings file.</summary>
     public bool WriteLogFile { get; set; } = true;
 
-    /// <summary>Use the dark colour scheme.</summary>
-    public bool DarkTheme { get; set; }
-
     // ------------------------------------------------------------------ video
 
     /// <summary>Preferred audio bitrate for MP3 output, in kbps.</summary>
@@ -122,6 +128,18 @@ public sealed class AppSettings
 
     public void Normalize()
     {
+        DownloadTypePreferences ??= new Dictionary<string, DownloadTypePreference>();
+        DownloadTypePreferences = DownloadTypePreferences
+            .Where(pair => !string.IsNullOrWhiteSpace(pair.Key) && pair.Value is not null)
+            .GroupBy(pair => pair.Key.Trim().ToLowerInvariant(), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(group => group.Key, group => group.Last().Value,
+                StringComparer.OrdinalIgnoreCase);
+        foreach (DownloadTypePreference preference in DownloadTypePreferences.Values)
+        {
+            preference.Connections = Math.Clamp(preference.Connections, 1, 32);
+            preference.SpeedLimitBytesPerSecond = Math.Max(0, preference.SpeedLimitBytesPerSecond);
+        }
+
         if (string.IsNullOrWhiteSpace(DownloadFolder))
             DownloadFolder = DefaultDownloadFolder();
 
@@ -137,4 +155,12 @@ public sealed class AppSettings
         if (string.IsNullOrWhiteSpace(SubtitleLanguages))
             SubtitleLanguages = "en";
     }
+}
+
+/// <summary>Reusable download settings that can be remembered for one extension.</summary>
+public sealed class DownloadTypePreference
+{
+    public string Folder { get; set; } = string.Empty;
+    public int Connections { get; set; } = 8;
+    public long SpeedLimitBytesPerSecond { get; set; }
 }

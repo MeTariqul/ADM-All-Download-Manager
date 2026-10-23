@@ -13,6 +13,7 @@ public sealed class LicenseService
     private readonly LicenseClient _client;
     private readonly string _publicKeyPem;
     private readonly string _deviceId;
+    private readonly LicenseTrialStore _trialStore;
 
     private LicenseStatus _status = new();
 
@@ -23,6 +24,7 @@ public sealed class LicenseService
         _client = client ?? new LicenseClient(LicenseConfiguration.EffectiveAppKey);
         _publicKeyPem = publicKeyPem ?? LicenseConfiguration.PublicKeyPem;
         _deviceId = string.IsNullOrWhiteSpace(deviceId) ? DeviceIdentity.DeviceId : deviceId;
+        _trialStore = new LicenseTrialStore(_deviceId);
     }
 
     /// <summary>The most recent licence status.</summary>
@@ -30,6 +32,13 @@ public sealed class LicenseService
 
     /// <summary>The device id this app uses.</summary>
     public string DeviceId => _deviceId;
+
+    /// <summary>Returns the persistent trial status, starting it on first use.</summary>
+    public LicenseTrialStatus GetTrialStatus() => _trialStore.GetStatus();
+
+    /// <summary>Requests a licence key using the configured licensing service.</summary>
+    public Task<LicenseRequestResult> RequestKeyAsync(string email,
+        CancellationToken cancellationToken = default) => _client.RequestKeyAsync(email, cancellationToken);
 
     /// <summary>The key that is currently stored, if any.</summary>
     public string? StoredKey => _store.Load()?.Key;

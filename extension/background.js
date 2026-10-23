@@ -37,7 +37,7 @@ async function setSession(items) {
   await callApi(sessionArea.set, items);
 }
 
-function sendNative(message, timeoutMs = 25000) {
+function sendNative(message, timeoutMs = 180000) {
   return new Promise((resolve) => {
     let settled = false;
     const timer = setTimeout(() => {
@@ -67,7 +67,7 @@ function sendNative(message, timeoutMs = 25000) {
 
 function setBadge(text, color) {
   try {
-    chrome.action.setBadgeBackgroundColor({ color: color || '#4A84F5' });
+    chrome.action.setBadgeBackgroundColor({ color: color || '#087EA4' });
     chrome.action.setBadgeText({ text: text || '' });
     if (text) {
       setTimeout(() => chrome.action.setBadgeText({ text: '' }), 4000);

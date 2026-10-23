@@ -35,8 +35,10 @@ internal static class Program
         {
             ("segment planner covers the file exactly", PlannerCoversFile),
             ("file name resolution and sanitising", FileNames),
+            ("diagnostic URLs omit credentials and private path data", SafeDiagnosticUrl),
             ("probe reports size, ranges and ETag", Probe),
             ("segmented download produces identical bytes", SegmentedDownload),
+            ("mismatched HTTP byte ranges are rejected", MismatchedRangeIsRejected),
             ("server without Range support falls back to one stream", StreamingFallback),
             ("pause, restart the app and resume without corruption", PauseAndResume),
             ("video formats are grouped into resolution choices", VideoFormats),
@@ -134,6 +136,15 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static Task SafeDiagnosticUrl()
+    {
+        Assert.Equal("https://example.com:8443",
+            DiagnosticsLog.SafeEndpoint("https://user:secret@example.com:8443/private/file?token=abc#section"));
+        Assert.Equal("https://[::1]:8443", DiagnosticsLog.SafeEndpoint("https://[::1]:8443/file?token=abc"));
+        Assert.Equal("[invalid URL]", DiagnosticsLog.SafeEndpoint("not a URL"));
+        return Task.CompletedTask;
+    }
+
     private static async Task Probe()
     {
         var payload = CreatePayload(512 * 1024);
@@ -167,6 +178,30 @@ internal static class Program
         Assert.Equal(expectedHash, Hash(File.ReadAllBytes(item.FilePath)));
         Assert.False(File.Exists(item.TempPath), ".admpart file should be removed after completion");
         Assert.Equal(payload.Length, item.BytesDownloaded);
+    }
+
+    private static async Task MismatchedRangeIsRejected()
+    {
+        var payload = CreatePayload(1024 * 1024);
+        await using var server = new RangeTestServer(payload) { ContentRangeOffset = 1 };
+        using var temp = new TempDirectory();
+        var settings = new AppSettings
+        {
+            DownloadFolder = temp.Path,
+            MaxConnections = 2,
+            MaxConcurrentDownloads = 1,
+            RetryPolicy = RetryPolicy.None
+        };
+        using var manager = new DownloadManager(settings,
+            new DownloadStore(Path.Combine(temp.Path, "downloads.json")));
+
+        var item = manager.Add(server.BaseUrl + "/mismatched.bin");
+        await WaitUntil(() => item.Status == DownloadStatus.Failed, TimeSpan.FromSeconds(15),
+            () => $"mismatched range was not rejected (status {item.Status})");
+
+        Assert.True(item.ErrorMessage?.Contains("mismatched byte range", StringComparison.OrdinalIgnoreCase) == true,
+            "failure should explain that the server returned the wrong range");
+        Assert.False(File.Exists(item.FilePath), "a final file must not be produced from a mismatched range");
     }
 
     private static async Task StreamingFallback()

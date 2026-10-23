@@ -3,10 +3,10 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:Adm.App.Converters"
         Title="ADM — All Download Manager"
-        Width="1160" Height="740" MinWidth="960" MinHeight="560"
+        Width="1360" Height="860" MinWidth="1080" MinHeight="700"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource WindowBackgroundBrush}"
-        Foreground="{StaticResource TextPrimaryBrush}"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         FontFamily="Segoe UI"
         TextOptions.TextFormattingMode="Display"
         UseLayoutRounding="True"
@@ -20,7 +20,66 @@
         <conv:CategoryGlyphConverter x:Key="CategoryGlyph" />
         <conv:StatusBrushConverter x:Key="StatusBrush" />
 
+        <Style x:Key="LibraryNavButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SidebarTextBrush}" />
+            <Setter Property="Padding" Value="12,10" />
+            <Setter Property="Margin" Value="0,2" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root" Background="{TemplateBinding Background}" CornerRadius="9"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="4" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Border x:Name="Marker" Width="3" CornerRadius="2" Background="{DynamicResource SidebarAccentBrush}"
+                                        HorizontalAlignment="Left" Visibility="Collapsed" />
+                                <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SidebarHoverBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="{DynamicResource SidebarSelectedBrush}" />
+                                <Setter TargetName="Marker" Property="Visibility" Value="Visible" />
+                                <Setter Property="Foreground" Value="{DynamicResource SidebarAccentBrush}" />
+                            </DataTrigger>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource SidebarAccentBrush}" />
+                                <Setter TargetName="Root" Property="BorderThickness" Value="1" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="QuickInput" TargetType="TextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="10,8" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="CaretBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="SelectionBrush" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="HeaderAction" TargetType="Button" BasedOn="{StaticResource GhostButton}">
+            <Setter Property="Padding" Value="12,8" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
         <Style x:Key="RowProgress" TargetType="ProgressBar" BasedOn="{StaticResource SlimProgressBar}">
+            <Setter Property="Height" Value="4" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Status}" Value="Completed">
                     <Setter Property="Visibility" Value="Collapsed" />
@@ -30,148 +89,264 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="DownloadRowContainer" TargetType="ListBoxItem">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="SelectionBorder" Background="Transparent" BorderBrush="Transparent"
+                                BorderThickness="1" CornerRadius="10" Margin="2,2,2,5">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition Height="76" />
-            <RowDefinition Height="*" />
-            <RowDefinition Height="34" />
-        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="244" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
 
-        <!-- Header / quick add -->
-        <Grid Grid.Row="0" Margin="28,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="196" />
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
+        <!-- Persistent library rail -->
+        <Border Grid.Column="0" Background="{DynamicResource SidebarBrush}">
+            <Grid Margin="18,22,18,18">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Border Width="30" Height="30" CornerRadius="8" Background="{StaticResource AccentBrush}">
-                    <TextBlock Text="↓" Foreground="White" FontSize="18" FontWeight="SemiBold"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Border>
-                <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                    <TextBlock Text="ADM" FontSize="14" FontWeight="SemiBold" />
-                    <TextBlock Text="All Download Manager" FontSize="10.5"
-                               Foreground="{StaticResource TextMutedBrush}" Margin="0,1,0,0" />
+                <StackPanel Orientation="Horizontal" Margin="4,2,0,34">
+                    <Border Width="42" Height="42" CornerRadius="13" Background="{DynamicResource SidebarSelectedBrush}">
+                        <Image Source="brand.png" Width="42" Height="42" Stretch="Uniform" />
+                    </Border>
+                    <StackPanel VerticalAlignment="Center" Margin="12,0,0,0">
+                        <TextBlock Text="ADM" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource SidebarTitleBrush}" />
+                        <TextBlock Text="DOWNLOAD MANAGER" FontSize="8.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource SidebarMutedBrush}" Margin="0,3,0,0" />
+                    </StackPanel>
                 </StackPanel>
-            </StackPanel>
 
-            <Border Grid.Column="1" Height="40" VerticalAlignment="Center"
-                    Background="{StaticResource SurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                <TextBlock Grid.Row="1" Text="YOUR LIBRARY" FontSize="9" FontWeight="Bold"
+                           Foreground="{DynamicResource SidebarMutedBrush}" Margin="12,0,0,10" />
+
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <ItemsControl ItemsSource="{Binding Categories}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Button Style="{StaticResource LibraryNavButton}"
+                                        Command="{Binding DataContext.SelectCategoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="28" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding Name, Converter={StaticResource CategoryGlyph}}" FontSize="15"
+                                                   Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Name}" FontSize="12.5" FontWeight="Medium"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding Count}" FontSize="10.5"
+                                                   Foreground="{DynamicResource SidebarMutedBrush}" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+
+                <StackPanel Grid.Row="3" Margin="0,18,0,0">
+                    <Border Height="1" Background="{DynamicResource SidebarDividerBrush}" Margin="4,0,4,14" />
+                    <Button Content="⚙    Settings" Style="{StaticResource LibraryNavButton}"
+                            AutomationProperties.Name="Settings" ToolTip="Settings" Click="OnSettingsClick"
+                            HorizontalContentAlignment="Left" />
+                    <Border Background="{DynamicResource SidebarSelectedBrush}" CornerRadius="12" Padding="13" Margin="0,15,0,0">
+                        <StackPanel>
+                            <TextBlock Text="PICK UP ANYTIME" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource SidebarAccentBrush}" />
+                            <TextBlock Text="Pause a transfer now and continue it later." FontSize="11" TextWrapping="Wrap"
+                                       Foreground="{DynamicResource SidebarTextBrush}" LineHeight="17" Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main workspace -->
+        <Grid Grid.Column="1" Margin="34,28,34,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid Grid.Row="0" Margin="0,0,0,22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Text="YOUR WORKSPACE" FontSize="9" FontWeight="Bold"
+                               Foreground="{DynamicResource AccentBrush}" />
+                    <TextBlock Text="Downloads" FontSize="29" FontWeight="Bold" Margin="0,3,0,0" />
+                    <TextBlock Text="Everything you're transferring, in one place." FontSize="12.5"
+                               Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="⚙  Settings" Style="{StaticResource HeaderAction}"
+                        AutomationProperties.Name="Settings" ToolTip="Settings" Click="OnSettingsClick"
+                        VerticalAlignment="Top" />
+            </Grid>
+
+            <!-- Compact overview cards -->
+            <Grid Grid.Row="1" Margin="0,0,0,18">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="13" Padding="17" Margin="0,0,8,0">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="IN YOUR LIBRARY" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                <TextBlock Text="{Binding ItemCount}" FontSize="24" FontWeight="Bold" />
+                                <TextBlock Text="downloads" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           VerticalAlignment="Bottom" Margin="8,0,0,4" />
+                            </StackPanel>
+                        </StackPanel>
+                        <Border Width="34" Height="34" CornerRadius="10" Background="{DynamicResource SurfaceAltBrush}"
+                                HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <TextBlock Text="▤" FontSize="15" Foreground="{DynamicResource AccentBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </Border>
+                <Border Grid.Column="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="13" Padding="17" Margin="4,0">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="TRANSFER ACTIVITY" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextMutedBrush}" />
+                            <TextBlock Text="{Binding SummaryText}" FontSize="15" FontWeight="SemiBold" Margin="0,8,40,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <Ellipse Width="9" Height="9" Fill="{DynamicResource SuccessBrush}"
+                                 HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+                <Border Grid.Column="2" Background="{DynamicResource AccentBrush}" CornerRadius="13" Padding="17"
+                        Margin="8,0,0,0">
+                    <Grid>
+                        <StackPanel>
+                            <TextBlock Text="SIMULTANEOUS DOWNLOADS" FontSize="9" FontWeight="Bold"
+                                       Foreground="{DynamicResource OnAccentBrush}" Opacity="0.72" />
+                            <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                                <TextBlock Text="{Binding Settings.MaxConcurrentDownloads}" FontSize="24" FontWeight="Bold"
+                                           Foreground="{DynamicResource OnAccentBrush}" />
+                                <TextBlock Text="at a time" FontSize="11" Foreground="{DynamicResource OnAccentBrush}"
+                                           Opacity="0.78" VerticalAlignment="Bottom" Margin="8,0,0,4" />
+                            </StackPanel>
+                        </StackPanel>
+                        <TextBlock Text="↗" FontSize="21" Foreground="{DynamicResource OnAccentBrush}"
+                                   HorizontalAlignment="Right" VerticalAlignment="Center" Opacity="0.85" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- Add link panel -->
+            <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="14" Padding="17" Margin="0,0,0,18">
                 <Grid>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-
-                    <Grid>
-                        <TextBox x:Name="AddUrlBox"
-                                 Style="{StaticResource InputBox}"
-                                 Background="Transparent"
-                                 BorderThickness="0"
-                                 FontSize="12.5"
-                                 Padding="13,8"
-                                 Text="{Binding AddUrlText, UpdateSourceTrigger=PropertyChanged}"
-                                 KeyDown="OnAddBoxKeyDown" />
-                        <TextBlock Text="Paste a download link..."
-                                   Margin="14,0,0,0" VerticalAlignment="Center"
-                                   Foreground="{StaticResource TextMutedBrush}" FontSize="12.5"
-                                   IsHitTestVisible="False">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding AddUrlText}" Value="">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
-                    </Grid>
-
-                    <Button Grid.Column="1" Content="Add" Command="{Binding AddCommand}"
-                            Style="{StaticResource PrimaryButton}" Margin="3"
-                            Padding="16,6" FontSize="12" />
+                    <Border Width="42" Height="42" CornerRadius="12" Background="{DynamicResource SurfaceAltBrush}"
+                            VerticalAlignment="Center">
+                        <TextBlock Text="＋" FontSize="23" Foreground="{DynamicResource AccentBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="13,0,15,0" VerticalAlignment="Center">
+                        <TextBlock Text="Add a download" FontSize="12.5" FontWeight="SemiBold" />
+                        <Grid Margin="-8,3,0,0">
+                            <TextBox x:Name="AddUrlBox" Style="{StaticResource QuickInput}"
+                                     AutomationProperties.Name="Download URL"
+                                     Text="{Binding AddUrlText, UpdateSourceTrigger=PropertyChanged}"
+                                     KeyDown="OnAddBoxKeyDown" />
+                            <TextBlock Text="Paste a file or video link here…" Margin="2,0,0,0" VerticalAlignment="Center"
+                                       Foreground="{DynamicResource TextMutedBrush}" FontSize="12" IsHitTestVisible="False">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AddUrlText}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                        </Grid>
+                    </StackPanel>
+                    <Button Grid.Column="2" Content="Add to ADM  →" Command="{Binding AddCommand}"
+                            Style="{StaticResource PrimaryButton}" Padding="18,12" FontSize="12.5"
+                            VerticalAlignment="Center" />
                 </Grid>
             </Border>
 
-            <Button Grid.Column="2" Content="&#xE713;" Style="{StaticResource IconButton}"
-                    Width="34" Height="34" FontSize="14" Margin="10,0,0,0"
-                    AutomationProperties.Name="Settings"
-                    ToolTip="Settings" Click="OnSettingsClick" />
-        </Grid>
-
-        <!-- Library + downloads -->
-        <Grid Grid.Row="1" Margin="28,4,28,0">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="176" />
-                <ColumnDefinition Width="*" />
-            </Grid.ColumnDefinitions>
-
-            <StackPanel Grid.Column="0" Margin="0,4,20,0">
-                <TextBlock Text="LIBRARY" Style="{StaticResource SectionLabel}" Margin="10,0,0,10" />
-                <ItemsControl ItemsSource="{Binding Categories}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Button Style="{StaticResource CategoryButton}"
-                                    Command="{Binding DataContext.SelectCategoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                    CommandParameter="{Binding}" Margin="0,1">
-                                <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*" />
-                                        <ColumnDefinition Width="Auto" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="{Binding Name}" FontSize="12.5" />
-                                    <TextBlock Grid.Column="1" Text="{Binding Count}" FontSize="10.5"
-                                               Foreground="{StaticResource TextMutedBrush}"
-                                               VerticalAlignment="Center" />
-                                </Grid>
-                            </Button>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
-
-            <Grid Grid.Column="1">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0" Margin="0,0,0,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Center">
-                        <TextBlock Text="Downloads" FontSize="19" FontWeight="SemiBold" />
-                        <TextBlock Text="{Binding ItemCount}" FontSize="11.5"
-                                   Foreground="{StaticResource TextMutedBrush}"
-                                   VerticalAlignment="Center" Margin="9,2,0,0" />
-                    </StackPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right">
-                        <Border Width="190" Height="30" VerticalAlignment="Center" Margin="0,0,12,0"
-                                Background="{StaticResource InputBackgroundBrush}"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" CornerRadius="6">
-                            <Grid>
-                                <TextBox x:Name="SearchBox"
-                                         Style="{StaticResource InputBox}"
-                                         Background="Transparent"
-                                         BorderThickness="0"
-                                         FontSize="12"
-                                         Padding="10,4"
-                                         Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
-                                <TextBlock Text="Search downloads..."
-                                           Margin="11,0,0,0" VerticalAlignment="Center"
-                                           Foreground="{StaticResource TextMutedBrush}" FontSize="12"
-                                           IsHitTestVisible="False">
+            <!-- List toolbar -->
+            <Grid Grid.Row="3" Margin="0,0,0,11">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="Download queue" FontSize="16" FontWeight="Bold" />
+                    <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8" Padding="8,3" Margin="10,0,0,0">
+                        <TextBlock Text="{Binding ItemCount}" FontSize="10.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </Border>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Width="205" Height="34" Background="{DynamicResource SurfaceBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="9" Margin="0,0,8,0">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="30" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="⌕" FontSize="19" Foreground="{DynamicResource TextMutedBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            <Grid Grid.Column="1">
+                                <TextBox x:Name="SearchBox" Style="{StaticResource QuickInput}" FontSize="11.5"
+                                         Padding="2,5" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="Search downloads" />
+                                <TextBlock Text="Search downloads" Margin="2,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5" IsHitTestVisible="False">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -184,19 +359,27 @@
                                     </TextBlock.Style>
                                 </TextBlock>
                             </Grid>
-                        </Border>
+                        </Grid>
+                    </Border>
+                    <Button Content="Pause all" Style="{StaticResource HeaderAction}"
+                            Command="{Binding PauseAllCommand}" Margin="0,0,6,0" />
+                    <Button Content="Resume all" Style="{StaticResource HeaderAction}"
+                            Command="{Binding ResumeAllCommand}" Margin="0,0,6,0" />
+                    <Button Content="Clear completed" Style="{StaticResource HeaderAction}"
+                            Command="{Binding ClearCompletedCommand}" />
+                </StackPanel>
+            </Grid>
 
-                        <Button Content="Pause all" Style="{StaticResource GhostButton}"
-                                Command="{Binding PauseAllCommand}" Margin="0,0,6,0" />
-                        <Button Content="Resume all" Style="{StaticResource GhostButton}"
-                                Command="{Binding ResumeAllCommand}" Margin="0,0,6,0" />
-                        <Button Content="Clear completed" Style="{StaticResource GhostButton}"
-                                Command="{Binding ClearCompletedCommand}" />
-                    </StackPanel>
-                </Grid>
-
-                <Grid Grid.Row="1">
-                    <ListBox x:Name="DownloadList" ItemsSource="{Binding DownloadsView}" Style="{StaticResource DownloadList}"
+            <!-- Download list and empty states -->
+            <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                    BorderThickness="1" CornerRadius="15" Padding="11,8" ClipToBounds="True">
+                <Grid>
+                    <ListBox x:Name="DownloadList" ItemsSource="{Binding DownloadsView}"
+                             Background="Transparent" BorderThickness="0" Padding="0"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             VirtualizingPanel.IsVirtualizing="True" VirtualizingPanel.VirtualizationMode="Recycling"
+                             ItemContainerStyle="{StaticResource DownloadRowContainer}"
                              SelectionMode="Extended" SelectionChanged="OnSelectionChanged"
                              MouseDoubleClick="OnDownloadListDoubleClick" KeyDown="OnDownloadListKeyDown">
                         <ListBox.ContextMenu>
@@ -217,113 +400,83 @@
                         </ListBox.ContextMenu>
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border x:Name="Row" Background="Transparent"
-                                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
-                                        Padding="6,14">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Style.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-
-                                        <Border Width="32" Height="32" CornerRadius="7"
-                                                Background="{StaticResource SurfaceAltBrush}" VerticalAlignment="Top">
-                                            <TextBlock Text="{Binding Category, Converter={StaticResource CategoryGlyph}}"
-                                                       FontSize="14" Foreground="{StaticResource TextSecondaryBrush}"
-                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                        </Border>
-
-                                        <StackPanel Grid.Column="1" Margin="13,0,16,0" VerticalAlignment="Center">
-                                            <TextBlock Text="{Binding FileName}" FontSize="13" FontWeight="SemiBold"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding DetailText}" FontSize="11.5"
-                                                       Foreground="{StaticResource TextMutedBrush}" Margin="0,3,0,0"
-                                                       TextTrimming="CharacterEllipsis" />
-                                            <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
-                                                         Style="{StaticResource RowProgress}" Margin="0,9,0,0"
-                                                         Foreground="{Binding Status, Converter={StaticResource StatusBrush}}" />
-                                        </StackPanel>
-
-                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                            <Button Content="&#xE769;" Style="{StaticResource IconButton}"
-                                                    AutomationProperties.Name="Pause"
-                                                    ToolTip="Pause"
-                                                    Command="{Binding DataContext.PauseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding CanPause, Converter={StaticResource BoolToVisibility}}" />
-                                            <Button Content="&#xE768;" Style="{StaticResource IconButton}"
-                                                    AutomationProperties.Name="Resume"
-                                                    ToolTip="Resume"
-                                                    Command="{Binding DataContext.ResumeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding CanResume, Converter={StaticResource BoolToVisibility}}" />
-                                            <Button Content="&#xE8A7;" Style="{StaticResource IconButton}"
-                                                    AutomationProperties.Name="Open file"
-                                                    ToolTip="Open file"
-                                                    Command="{Binding DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding CanOpen, Converter={StaticResource BoolToVisibility}}" />
-                                            <Button Content="&#xE8B7;" Style="{StaticResource IconButton}"
-                                                    AutomationProperties.Name="Show in folder"
-                                                    ToolTip="Show in folder"
-                                                    Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}"
-                                                    Visibility="{Binding CanOpenFolder, Converter={StaticResource BoolToVisibility}}" />
-                                            <Button Content="&#xE74D;" Style="{StaticResource DangerIconButton}"
-                                                    AutomationProperties.Name="Remove"
-                                                    ToolTip="Remove"
-                                                    Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                    CommandParameter="{Binding}" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
+                                <Grid Margin="13,12">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="46" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <Border Width="38" Height="38" CornerRadius="12" Background="{DynamicResource SurfaceAltBrush}"
+                                            VerticalAlignment="Top">
+                                        <TextBlock Text="{Binding Category, Converter={StaticResource CategoryGlyph}}" FontSize="17"
+                                                   Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <StackPanel Grid.Column="1" Margin="10,0,18,0" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding FileName}" FontSize="12.5" FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding DetailText}" FontSize="10.5"
+                                                   Foreground="{Binding Status, Converter={StaticResource StatusBrush}}"
+                                                   AutomationProperties.HelpText="{Binding ErrorMessage}"
+                                                   ToolTip="{Binding ErrorMessage}" Margin="0,4,0,0"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <ProgressBar Value="{Binding ProgressPercent, Mode=OneWay}" Maximum="100"
+                                                     Style="{StaticResource RowProgress}" Margin="0,9,0,0"
+                                                     Foreground="{Binding Status, Converter={StaticResource StatusBrush}}" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Button Content="&#xE769;" Style="{StaticResource IconButton}" AutomationProperties.Name="Pause"
+                                                ToolTip="Pause" Command="{Binding DataContext.PauseCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" Visibility="{Binding CanPause, Converter={StaticResource BoolToVisibility}}" />
+                                        <Button Content="&#xE768;" Style="{StaticResource IconButton}" AutomationProperties.Name="Resume"
+                                                ToolTip="Resume" Command="{Binding DataContext.ResumeCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" Visibility="{Binding CanResume, Converter={StaticResource BoolToVisibility}}" />
+                                        <Button Content="&#xE8A7;" Style="{StaticResource IconButton}" AutomationProperties.Name="Open file"
+                                                ToolTip="Open file" Command="{Binding DataContext.OpenFileCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" Visibility="{Binding CanOpen, Converter={StaticResource BoolToVisibility}}" />
+                                        <Button Content="&#xE8B7;" Style="{StaticResource IconButton}" AutomationProperties.Name="Show in folder"
+                                                ToolTip="Show in folder" Command="{Binding DataContext.OpenFolderCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" Visibility="{Binding CanOpenFolder, Converter={StaticResource BoolToVisibility}}" />
+                                        <Button Content="&#xE74D;" Style="{StaticResource DangerIconButton}" AutomationProperties.Name="Remove"
+                                                ToolTip="Remove" Command="{Binding DataContext.RemoveCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}" />
+                                    </StackPanel>
+                                </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
 
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" IsHitTestVisible="False"
                                 Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibility}}">
-                        <Border Width="46" Height="46" CornerRadius="23"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="1"
+                        <Border Width="62" Height="62" CornerRadius="20" Background="{DynamicResource SurfaceAltBrush}"
                                 HorizontalAlignment="Center">
-                            <TextBlock Text="↓" FontSize="19" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Foreground="{StaticResource TextMutedBrush}" />
+                            <Image Source="brand.png" Width="48" Height="48" Stretch="Uniform"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
                         </Border>
-                        <TextBlock Text="No downloads yet" FontSize="15" FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" Margin="0,14,0,0" />
-                        <TextBlock Text="Paste a link above, or send one from your browser."
-                                   FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                        <TextBlock Text="Your queue is clear" FontSize="16" FontWeight="Bold"
+                                   HorizontalAlignment="Center" Margin="0,15,0,0" />
+                        <TextBlock Text="Paste a link above or send one from your browser to get started."
+                                   FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}"
                                    HorizontalAlignment="Center" Margin="0,6,0,0" />
                     </StackPanel>
 
                     <TextBlock Text="Nothing in this category yet." FontSize="12"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Visibility="{Binding IsFilterEmpty, Converter={StaticResource BoolToVisibility}}" />
                 </Grid>
+            </Border>
+
+            <!-- Application status -->
+            <Grid Grid.Row="5" Margin="2,13,2,0">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Ellipse Width="7" Height="7" Fill="{DynamicResource SuccessBrush}" Margin="0,0,8,0" />
+                    <TextBlock Text="{Binding StatusMessage}" FontSize="10.5" Foreground="{DynamicResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <TextBlock Text="{Binding SummaryText}" FontSize="10.5" Foreground="{DynamicResource TextMutedBrush}"
+                           VerticalAlignment="Center" HorizontalAlignment="Right" />
             </Grid>
         </Grid>
-
-        <!-- Status bar -->
-        <Border Grid.Row="2" BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
-            <Grid Margin="28,0">
-                <TextBlock Text="{Binding StatusMessage}" FontSize="10.5"
-                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center" />
-                <TextBlock Text="{Binding SummaryText}" FontSize="10.5"
-                           Foreground="{StaticResource TextMutedBrush}" VerticalAlignment="Center"
-                           HorizontalAlignment="Right" />
-            </Grid>
-        </Border>
     </Grid>
 </Window>

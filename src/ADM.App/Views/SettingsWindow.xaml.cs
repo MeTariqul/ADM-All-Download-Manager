@@ -1,4 +1,5 @@
 using System.IO;
+using System.Diagnostics;
 using System.Windows;
 using Adm.Core.Licensing;
 using Adm.Core.Media;
@@ -11,6 +12,7 @@ namespace Adm.App.Views;
 public partial class SettingsWindow : Window
 {
     private readonly AppSettings _settings;
+    private bool _clearTypePreferencesRequested;
 
     public SettingsWindow(AppSettings settings)
     {
@@ -21,6 +23,8 @@ public partial class SettingsWindow : Window
         ConnectionsBox.Text = settings.MaxConnections.ToString();
         ConcurrentBox.Text = settings.MaxConcurrentDownloads.ToString();
         SpeedLimitBox.Text = (settings.SpeedLimitBytesPerSecond / 1024).ToString();
+        AskBeforeDownloadCheck.IsChecked = settings.AskBeforeDownload;
+        RefreshSavedTypesText();
         AutoResumeCheck.IsChecked = settings.AutoResumeOnStartup;
         StartWithWindowsCheck.IsChecked = settings.StartWithWindows;
         ConfirmDeleteCheck.IsChecked = settings.ConfirmBeforeDelete;
@@ -30,7 +34,6 @@ public partial class SettingsWindow : Window
         OpenWhenFinishedCheck.IsChecked = settings.OpenWhenFinished;
         ExitWhenFinishedCheck.IsChecked = settings.ExitWhenFinished;
         LogFileCheck.IsChecked = settings.WriteLogFile;
-        DarkThemeCheck.IsChecked = settings.DarkTheme;
         InterceptCheck.IsChecked = settings.InterceptBrowserDownloads;
         SubtitlesCheck.IsChecked = settings.DownloadSubtitles;
         AutoUpdateCheck.IsChecked = settings.AutoUpdateYtDlp;
@@ -90,6 +93,14 @@ public partial class SettingsWindow : Window
 
         LicenseText.Text = $"{status.SummaryText}.{expiry} {status.Message}  Device {DeviceIdentity.ShortId}.";
 
+        if (!status.CanRun)
+        {
+            LicenseTrialStatus trial = _license.GetTrialStatus();
+            LicenseText.Text += trial.IsActive
+                ? $" Trial active until {trial.EndsAt?.LocalDateTime:d MMM yyyy} ({Math.Ceiling(trial.Remaining.TotalDays):F0} day(s) left)."
+                : " The seven-day trial has ended or is unavailable.";
+        }
+
         await CheckServerKeyAsync();
     }
 
@@ -141,6 +152,23 @@ public partial class SettingsWindow : Window
         catch (Exception ex)
         {
             LicenseText.Text = ex.Message;
+        }
+    }
+
+    private void OnOpenGitHub(object sender, RoutedEventArgs e) => OpenCreatorLink("https://github.com/MeTariqul");
+
+    private void OnOpenLinkedIn(object sender, RoutedEventArgs e) => OpenCreatorLink("https://www.linkedin.com/in/metariqul/");
+
+    private void OpenCreatorLink(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Could not open the link.\n\n" + ex.Message, "ADM",
+                MessageBoxButton.OK, MessageBoxImage.Information);
         }
     }
 
@@ -211,6 +239,19 @@ public partial class SettingsWindow : Window
             FolderBox.Text = dialog.FolderName;
     }
 
+    private void OnClearTypePreferences(object sender, RoutedEventArgs e)
+    {
+        _clearTypePreferencesRequested = true;
+        RefreshSavedTypesText();
+    }
+
+    private void RefreshSavedTypesText()
+    {
+        SavedTypesText.Text = _clearTypePreferencesRequested || _settings.DownloadTypePreferences.Count == 0
+            ? "No file type preferences are saved yet. Use the review prompt to remember a destination and transfer setup."
+            : "Saved types: " + string.Join(", ", _settings.DownloadTypePreferences.Keys.OrderBy(key => key));
+    }
+
     private void OnSave(object sender, RoutedEventArgs e)
     {
         if (!int.TryParse(ConnectionsBox.Text.Trim(), out int connections) || connections is < 1 or > 32)
@@ -267,9 +308,12 @@ public partial class SettingsWindow : Window
         }
 
         _settings.DownloadFolder = folder;
+        if (_clearTypePreferencesRequested)
+            _settings.DownloadTypePreferences.Clear();
         _settings.MaxConnections = connections;
         _settings.MaxConcurrentDownloads = concurrent;
         _settings.SpeedLimitBytesPerSecond = Math.Min(limitKb * 1024, 10L * 1024 * 1024 * 1024);
+        _settings.AskBeforeDownload = AskBeforeDownloadCheck.IsChecked == true;
         _settings.AutoResumeOnStartup = AutoResumeCheck.IsChecked == true;
         _settings.StartWithWindows = StartWithWindowsCheck.IsChecked == true;
         _settings.ConfirmBeforeDelete = ConfirmDeleteCheck.IsChecked == true;
@@ -279,7 +323,6 @@ public partial class SettingsWindow : Window
         _settings.OpenWhenFinished = OpenWhenFinishedCheck.IsChecked == true;
         _settings.ExitWhenFinished = ExitWhenFinishedCheck.IsChecked == true;
         _settings.WriteLogFile = LogFileCheck.IsChecked == true;
-        _settings.DarkTheme = DarkThemeCheck.IsChecked == true;
         _settings.InterceptBrowserDownloads = InterceptCheck.IsChecked == true;
         _settings.DownloadSubtitles = SubtitlesCheck.IsChecked == true;
         _settings.AutoUpdateYtDlp = AutoUpdateCheck.IsChecked == true;

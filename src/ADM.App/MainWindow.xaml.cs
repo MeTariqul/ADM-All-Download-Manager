@@ -7,6 +7,7 @@ using System.Windows.Interop;
 using Adm.App.Services;
 using Adm.App.ViewModels;
 using Adm.App.Views;
+using Adm.Core.Util;
 
 namespace Adm.App;
 
@@ -328,11 +329,20 @@ public partial class MainWindow : Window
         if (DataContext is not MainViewModel viewModel)
             return;
 
-        var dialog = new SettingsWindow(viewModel.Settings) { Owner = this };
-        if (dialog.ShowDialog() == true)
+        try
         {
-            viewModel.ApplySettings();
-            StartupRegistration.Apply(viewModel.Settings.StartWithWindows);
+            var dialog = new SettingsWindow(viewModel.Settings) { Owner = this };
+            if (dialog.ShowDialog() == true)
+            {
+                viewModel.ApplySettings();
+                StartupRegistration.Apply(viewModel.Settings.StartWithWindows);
+            }
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.Error("Could not open or save Settings.", ex);
+            MessageBox.Show(this, "ADM could not open Settings. Details were written to the diagnostics log.\n\n" + ex.Message,
+                "Settings", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 

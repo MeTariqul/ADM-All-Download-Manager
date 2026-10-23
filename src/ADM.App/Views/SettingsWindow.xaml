@@ -67,14 +67,27 @@
                 <TextBox x:Name="SpeedLimitBox" Style="{StaticResource InputBox}" Width="180"
                          HorizontalAlignment="Left" />
 
+                <CheckBox x:Name="AskBeforeDownloadCheck" Style="{StaticResource MinimalCheckBox}"
+                          Margin="0,16,0,0" Content="Ask before downloads without saved file type preferences" />
+                <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="13" Margin="0,8,0,0">
+                    <StackPanel>
+                        <TextBlock Text="File type preferences" FontSize="11.5" FontWeight="SemiBold" />
+                        <TextBlock x:Name="SavedTypesText" FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                   TextWrapping="Wrap" Margin="0,5,0,8" />
+                        <Button Content="Clear saved file type preferences" Style="{StaticResource GhostButton}"
+                                HorizontalAlignment="Left" Padding="12,6" Click="OnClearTypePreferences" />
+                    </StackPanel>
+                </Border>
+
                 <TextBlock Text="When the same link is added twice" FontSize="12"
                            Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16,0,6" />
-                <ComboBox x:Name="DuplicatePolicyBox" Style="{StaticResource InputBox}" Width="240"
+                <ComboBox x:Name="DuplicatePolicyBox" Style="{StaticResource InputComboBox}" Width="240"
                           HorizontalAlignment="Left" />
 
                 <TextBlock Text="When the file already exists" FontSize="12"
                            Foreground="{StaticResource TextSecondaryBrush}" Margin="0,16,0,6" />
-                <ComboBox x:Name="FileExistsPolicyBox" Style="{StaticResource InputBox}" Width="240"
+                <ComboBox x:Name="FileExistsPolicyBox" Style="{StaticResource InputComboBox}" Width="240"
                           HorizontalAlignment="Left" />
 
                 <TextBlock Text="When a download fails" FontSize="12"
@@ -84,7 +97,7 @@
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
-                    <ComboBox x:Name="RetryPolicyBox" Style="{StaticResource InputBox}" Width="240"
+                    <ComboBox x:Name="RetryPolicyBox" Style="{StaticResource InputComboBox}" Width="240"
                               HorizontalAlignment="Left" />
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                         <TextBlock Text="Retries" FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
@@ -214,8 +227,6 @@
                           Content="Quit ADM when every download has finished" />
                 <CheckBox x:Name="LogFileCheck" Style="{StaticResource MinimalCheckBox}" Margin="0,12,0,0"
                           Content="Write a diagnostics log file" />
-                <CheckBox x:Name="DarkThemeCheck" Style="{StaticResource MinimalCheckBox}" Margin="0,12,0,0"
-                          Content="Use the dark colour scheme" />
                 <CheckBox x:Name="InterceptCheck" Style="{StaticResource MinimalCheckBox}" Margin="0,12,0,0"
                           Content="Let the browser extension hand downloads to ADM" />
 
@@ -238,6 +249,21 @@
                                     Padding="14,7" Click="OnManageLicense" />
                             <Button Content="Copy device id" Style="{StaticResource GhostButton}"
                                     Margin="8,0,0,0" Padding="14,7" Click="OnCopyDeviceId" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="{StaticResource SurfaceBrush}" BorderBrush="{StaticResource BorderBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="14" Margin="0,12,0,0">
+                    <StackPanel>
+                        <TextBlock Text="About ADM" FontSize="12" FontWeight="SemiBold" />
+                        <TextBlock Text="Created by Tariqul Islam" FontSize="11"
+                                   Foreground="{StaticResource TextMutedBrush}" Margin="0,5,0,8" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="GitHub" Style="{StaticResource GhostButton}" Padding="14,7"
+                                    Click="OnOpenGitHub" />
+                            <Button Content="LinkedIn" Style="{StaticResource GhostButton}" Padding="14,7"
+                                    Margin="8,0,0,0" Click="OnOpenLinkedIn" />
                         </StackPanel>
                     </StackPanel>
                 </Border>

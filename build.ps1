@@ -10,6 +10,11 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $root = $PSScriptRoot
+$versionProps = [xml](Get-Content (Join-Path $root 'Directory.Build.props') -Raw)
+$appVersion = $versionProps.SelectSingleNode('/Project/PropertyGroup/Version').InnerText
+if ([string]::IsNullOrWhiteSpace($appVersion)) {
+    throw 'The product version is missing from Directory.Build.props.'
+}
 
 $dotnet = $null
 $candidates = @()
@@ -39,6 +44,28 @@ if (-not $dotnet) {
 function Write-Step([string]$Text) {
     Write-Host ''
     Write-Host "== $Text ==" -ForegroundColor Cyan
+}
+
+function Assert-PublishArtifacts {
+    $requiredFiles = @(
+        (Join-Path $publishRoot 'app\ADM.exe'),
+        (Join-Path $publishRoot 'app\tools\yt-dlp.exe'),
+        (Join-Path $publishRoot 'native\ADM.NativeHost.exe'),
+        (Join-Path $publishRoot 'extension\manifest.json')
+    )
+
+    $missing = @($requiredFiles | Where-Object { -not (Test-Path $_ -PathType Leaf) })
+    if ($missing.Count -gt 0) {
+        throw "Publish output is incomplete. Missing required files: $($missing -join ', ')"
+    }
+
+    $optionalVideoTools = @('ffmpeg.exe', 'ffprobe.exe') | ForEach-Object {
+        Join-Path $publishRoot "app\tools\$_"
+    }
+    $missingVideoTools = @($optionalVideoTools | Where-Object { -not (Test-Path $_ -PathType Leaf) })
+    if ($missingVideoTools.Count -gt 0) {
+        Write-Warning 'Optional ffmpeg/ffprobe tools are missing; merged video+audio and MP3 downloads will be unavailable.'
+    }
 }
 
 if (-not $SkipTests) {
@@ -126,18 +153,25 @@ if ($LASTEXITCODE -ne 0) {
 
 Write-Step 'Copying browser extension'
 Copy-Item (Join-Path $root 'extension') (Join-Path $publishRoot 'extension') -Recurse
+Assert-PublishArtifacts
 
 # Signing the executables removes the SmartScreen warning that unsigned
 # builds get. The certificate is a PFX file; the password may come from the
 # environment so it does not end up in the shell history.
 function Sign-Executables([string]$Directory) {
     if (-not $SignCertificate) {
-        return
+        return 'unsigned'
     }
 
     if (-not (Test-Path $SignCertificate)) {
         Write-Warning "The signing certificate '$SignCertificate' was not found. The build is not signed."
-        return
+        return 'certificate not found'
+    }
+
+    $signTool = Get-Command signtool.exe -ErrorAction SilentlyContinue
+    if (-not $signTool) {
+        Write-Warning 'signtool.exe was not found. The build is not signed.'
+        return 'signtool not found'
     }
 
     $password = $SignPassword
@@ -145,6 +179,7 @@ function Sign-Executables([string]$Directory) {
         $password = $env:ADM_SIGN_PASSWORD
     }
 
+    $failures = 0
     foreach ($file in Get-ChildItem -Path $Directory -Filter '*.exe' -Recurse -File) {
         $arguments = @('sign', '/fd', 'SHA256', '/tr', 'http://timestamp.digicert.com', '/td', 'SHA256')
         if ($password) {
@@ -158,18 +193,30 @@ function Sign-Executables([string]$Directory) {
         & signtool.exe @arguments
         if ($LASTEXITCODE -ne 0) {
             Write-Warning "Signing $($file.Name) failed. The build is not signed."
+            $failures++
         }
         else {
             Write-Host "Signed $($file.Name)"
         }
     }
+
+    if ($failures -gt 0) { return 'signing failed' }
+    return 'signed'
 }
 
-Sign-Executables (Join-Path $publishRoot 'app')
-Sign-Executables (Join-Path $publishRoot 'native')
+$appSigning = Sign-Executables (Join-Path $publishRoot 'app')
+$hostSigning = Sign-Executables (Join-Path $publishRoot 'native')
+$signingStatus = if ($appSigning -eq 'signed' -and $hostSigning -eq 'signed') {
+    'signed'
+} elseif ($appSigning -eq 'unsigned' -and $hostSigning -eq 'unsigned') {
+    'unsigned'
+} else {
+    "incomplete ($appSigning; host $hostSigning)"
+}
 
 if ($SkipInstaller) {
     Write-Host ''
+    Write-Host "Release summary: ADM $appVersion | $Runtime | self-contained: $selfContained | signing: $signingStatus"
     Write-Host "Publish output: $publishRoot"
     return
 }
@@ -191,15 +238,18 @@ if (-not $iscc) {
 }
 
 if (-not $iscc) {
-    Write-Warning 'Inno Setup 6 was not found. Install it, then run: ISCC.exe installer\ADM.iss'
+    Write-Warning 'Inno Setup 6 was not found. Install it, then rerun build.ps1 to create the installer.'
+    Write-Host "Release summary: ADM $appVersion | $Runtime | self-contained: $selfContained | signing: $signingStatus"
     Write-Host "Publish output: $publishRoot"
     return
 }
 
-& $iscc (Join-Path $root 'installer\ADM.iss')
+& $iscc "/DAppVersion=$appVersion" (Join-Path $root 'installer\ADM.iss')
 if ($LASTEXITCODE -ne 0) {
     throw 'Inno Setup failed.'
 }
 
 Write-Step 'Done'
+Write-Host "Release summary: ADM $appVersion | $Runtime | self-contained: $selfContained | signing: $signingStatus"
+Write-Host "Video tools: yt-dlp present; ffmpeg/ffprobe: $(if ((Test-Path (Join-Path $publishRoot 'app\tools\ffmpeg.exe')) -and (Test-Path (Join-Path $publishRoot 'app\tools\ffprobe.exe'))) { 'present' } else { 'missing' })"
 Write-Host "Installer: $(Join-Path $root 'artifacts\installer')"

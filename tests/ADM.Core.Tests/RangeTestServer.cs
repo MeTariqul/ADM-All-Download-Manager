@@ -42,6 +42,8 @@ internal sealed class RangeTestServer : IAsyncDisposable
 
     public string ContentDisposition { get; set; } = "attachment; filename=\"server-name.bin\"";
 
+    public int ContentRangeOffset { get; set; }
+
     public int RequestCount => Volatile.Read(ref _requestCount);
 
     public int RangeRequestCount => Volatile.Read(ref _rangeRequestCount);
@@ -137,7 +139,8 @@ internal sealed class RangeTestServer : IAsyncDisposable
                     headers.Append("Accept-Ranges: bytes\r\n");
                 if (isRanged)
                 {
-                    headers.Append($"Content-Range: bytes {start}-{end}/{_payload.Length}\r\n");
+                    int rangeOffset = end > start ? ContentRangeOffset : 0;
+                    headers.Append($"Content-Range: bytes {start + rangeOffset}-{end + rangeOffset}/{_payload.Length + rangeOffset}\r\n");
                     Interlocked.Increment(ref _rangeRequestCount);
                     lock (_rangeLock)
                         _ranges.Add((start, end));

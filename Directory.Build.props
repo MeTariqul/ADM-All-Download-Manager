@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Single source of truth for the app, core library, native host, and installer. -->
+    <Version>1.2.0</Version>
+    <Product>ADM All Download Manager</Product>
+  </PropertyGroup>
+</Project>

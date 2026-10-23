@@ -98,6 +98,15 @@ internal static class SegmentWorker
 
             if (response.StatusCode != HttpStatusCode.PartialContent)
                 response.EnsureSuccessStatusCode();
+
+            var contentRange = response.Content.Headers.ContentRange;
+            long expectedLength = end - start + 1;
+            if (contentRange is null || !string.Equals(contentRange.Unit, "bytes", StringComparison.OrdinalIgnoreCase) ||
+                contentRange.From != start || contentRange.To != end ||
+                (response.Content.Headers.ContentLength is long contentLength && contentLength != expectedLength))
+            {
+                throw new InvalidDataException("The server returned a mismatched byte range.");
+            }
         }
 
         await using var source = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);

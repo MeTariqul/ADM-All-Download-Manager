@@ -12,7 +12,10 @@ native messaging host.
 4. Click **Load unpacked** and select this `extension` folder (normally
    `%LOCALAPPDATA%\Programs\ADM\extension`).
 5. Open the extension. The header should show **ADM ready**. If it shows
-   **ADM not running**, click **Open ADM** to start the desktop app.
+   **ADM not running**, click **Open ADM** to start the desktop app. If it shows
+   **Extension not connected**, reinstall ADM or register the host with
+   `tools\Register-NativeHost.ps1`, then restart the browser and reload the
+   extension.
 
 The manifest contains a fixed public key, so the extension ID is always
 `nanpfakhkjjfpmibmdapaeldgodbmebh` and matches the native host manifest.
@@ -30,6 +33,10 @@ worker:
 Firefox loads temporary add-ons only until the browser closes. For permanent
 use the extension must be signed by Mozilla; the native host registration is
 already created by the installer.
+
+To verify Firefox registration, open `about:debugging`, load the temporary
+extension, and confirm its popup reports **ADM ready**. A temporary Firefox
+extension must be loaded again after each browser restart.
 
 ## Using it
 

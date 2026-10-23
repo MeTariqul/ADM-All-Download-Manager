@@ -10,6 +10,7 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using Adm.App.Infrastructure;
 using Adm.App.Services;
+using Adm.App.Views;
 using Adm.Core;
 using Adm.Core.Media;
 using Adm.Core.Models;
@@ -237,8 +238,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         {
             try
             {
-                _manager.Add(url);
-                added++;
+                if (QueueDownload(url, null, new AddOptions()) is not null)
+                    added++;
             }
             catch (Exception ex)
             {
@@ -294,7 +295,24 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var item = _manager.AddVideo(info, format);
+            string id = FileNameResolver.Sanitize(info.Id ?? string.Empty);
+            if (id.Length > 40)
+                id = id[..40];
+            if (string.Equals(id, "download.bin", StringComparison.OrdinalIgnoreCase))
+                id = string.Empty;
+            string title = FileNameResolver.Sanitize(info.Title ?? "Video");
+            string extension = string.IsNullOrWhiteSpace(format.Extension) ? "mp4" : format.Extension!;
+            string suggestedName = string.IsNullOrWhiteSpace(id)
+                ? $"{title}.{extension}"
+                : $"{title} [{id}].{extension}";
+            var options = PrepareSaveOptions(info.PageUrl, suggestedName, new AddOptions());
+            if (options is null)
+            {
+                StatusMessage = "Video download cancelled.";
+                return null;
+            }
+
+            var item = _manager.AddVideo(info, format, options);
             StatusMessage = format.IsAudioOnly
                 ? $"{format.ResolutionText} audio queued."
                 : $"{format.ResolutionText} video queued.";
@@ -335,7 +353,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                     MergeContainer = "mp4"
                 };
 
-                if (_manager.AddVideo(info, format) is not null)
+                string suggestedName = string.IsNullOrWhiteSpace(entry.Id)
+                    ? $"{FileNameResolver.Sanitize(entry.Title)}.mp4"
+                    : $"{FileNameResolver.Sanitize(entry.Title)} [{FileNameResolver.Sanitize(entry.Id)}].mp4";
+                var options = PrepareSaveOptions(entry.Url, suggestedName, new AddOptions());
+                if (options is not null && _manager.AddVideo(info, format, options) is not null)
                     added++;
             }
             catch (Exception ex)
@@ -357,14 +379,21 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     {
         try
         {
-            var name = string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileName(fileName);
-            var item = _manager.Add(url, new AddOptions
+            var options = new AddOptions
             {
-                FileName = name,
                 Referrer = referrer,
                 UserAgent = userAgent,
                 Cookie = cookie
-            });
+            };
+            string? name = string.IsNullOrWhiteSpace(fileName) ? null : Path.GetFileName(fileName);
+            options = PrepareSaveOptions(url, name, options);
+            if (options is null)
+            {
+                StatusMessage = "Download cancelled.";
+                return null;
+            }
+
+            var item = _manager.Add(url, options);
 
             StatusMessage = "Download queued.";
             return item;
@@ -375,6 +404,89 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             return null;
         }
     }
+
+    private DownloadItem? QueueDownload(string url, string? suggestedName, AddOptions options)
+    {
+        var prepared = PrepareSaveOptions(url, suggestedName, options);
+        if (prepared is null)
+        {
+            StatusMessage = "Download cancelled.";
+            return null;
+        }
+
+        return _manager.Add(url, prepared);
+    }
+
+    private AddOptions? PrepareSaveOptions(string url, string? suggestedName, AddOptions options)
+    {
+        string proposedName = string.IsNullOrWhiteSpace(suggestedName)
+            ? FileNameResolver.FromUrl(url)
+            : Path.GetFileName(suggestedName);
+        string extension = Path.GetExtension(proposedName).ToLowerInvariant();
+        Settings.DownloadTypePreferences.TryGetValue(extension, out var preference);
+
+        if (Settings.AskBeforeDownload && preference is null)
+        {
+            var dialog = new SaveDownloadWindow(url, proposedName, Settings, null)
+            {
+                Owner = Application.Current.MainWindow
+            };
+
+            if (Application.Current.MainWindow is { IsVisible: false } owner)
+            {
+                owner.Show();
+                owner.Activate();
+            }
+
+            if (dialog.ShowDialog() != true || dialog.Options is null)
+                return null;
+
+            options = MergeOptions(options, dialog.Options);
+            if (dialog.RememberForFileType && !string.IsNullOrWhiteSpace(dialog.FileTypeExtension))
+            {
+                Settings.DownloadTypePreferences[dialog.FileTypeExtension] = new DownloadTypePreference
+                {
+                    Folder = dialog.Options.Folder!,
+                    Connections = dialog.Options.Connections ?? Settings.MaxConnections,
+                    SpeedLimitBytesPerSecond = dialog.Options.SpeedLimitBytesPerSecond ?? 0
+                };
+                try
+                {
+                    _settingsStore.Save(Settings);
+                    StatusMessage = $"Saved download preferences for {dialog.FileTypeExtension} files.";
+                }
+                catch (Exception ex)
+                {
+                    DiagnosticsLog.Warn("Could not save file-type download preferences.", ex);
+                }
+            }
+            return options;
+        }
+
+        if (preference is not null)
+        {
+            options.Folder = preference.Folder;
+            options.FileName = proposedName;
+            options.Connections = preference.Connections;
+            options.SpeedLimitBytesPerSecond = preference.SpeedLimitBytesPerSecond;
+        }
+        return options;
+    }
+
+    private static AddOptions MergeOptions(AddOptions original, AddOptions selected) => new()
+    {
+        Folder = selected.Folder,
+        FileName = selected.FileName,
+        Connections = selected.Connections,
+        SpeedLimitBytesPerSecond = selected.SpeedLimitBytesPerSecond,
+        ExpectedChecksum = selected.ExpectedChecksum,
+        ChecksumAlgorithm = selected.ChecksumAlgorithm,
+        Referrer = original.Referrer,
+        UserAgent = original.UserAgent,
+        Cookie = original.Cookie,
+        Authorization = original.Authorization,
+        Priority = original.Priority
+    };
 
     public void ApplySettings()
     {
@@ -389,7 +501,6 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 ? Settings.CookiesFromBrowser
                 : null;
 
-            ThemeManager.Apply(Settings.DarkTheme);
             ApplyClipboardMonitoring();
 
             StatusMessage = "Settings saved.";
