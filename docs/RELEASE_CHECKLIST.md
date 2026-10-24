@@ -17,6 +17,20 @@ publish files before attempting to package them.
 - New: online licence verification once per day; Remove licence button
 - Tests: skipped (`-SkipTests`) for this local build; re-run the engine harness on a clean machine.
 
+## VirusTotal scan report — ADM-Setup-1.3.1.exe
+
+- File: `artifacts\installer\ADM-Setup-1.3.1.exe`
+- SHA256: `02DEBF98CADD4A07AF89907E56C2EF25F83A1A0FB2DA39169688995974F06788`
+- Scan URL: https://www.virustotal.com/gui/file/02debf98cadd4a07af89907e56c2ef25f83a1a0fb2da39169688995974f06788
+- Engines flagged: _fill in after scanning_
+- Detected names: _fill in after scanning_
+- Clean engines: _fill in after scanning_
+- Notes: _fill in after scanning_
+
+Unsigned installers are commonly flagged by antivirus engines. Sign the
+installer with a code-signing certificate before a public release to reduce
+detections.
+
 ## Build and package
 
 - [ ] Start from a clean checkout and confirm the intended version in `Directory.Build.props`.
