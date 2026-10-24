@@ -1,7 +1,7 @@
 # ADM Update Plan
 
-**Prepared:** 2026-10-23  
-**Product baseline:** ADM 1.2.0 (.NET 8, WPF)
+**Prepared:** 2026-10-24  
+**Product baseline:** ADM 1.3.1 (.NET 8, WPF)
 
 This is the current delivery plan for ADM. The older
 [`idm_clone_master_architecture_development_plan.md`](../idm_clone_master_architecture_development_plan.md)
@@ -18,6 +18,13 @@ is an initial design sketch and predates much of the current implementation.
   [`RELEASE_CHECKLIST.md`](RELEASE_CHECKLIST.md).
 - [x] Apply the final ADM logo and its silver, navy and cyan light theme across
   the desktop app, installer and browser extension.
+- [x] Require a matching strong ETag or saved Last-Modified value before restoring a ranged partial download.
+- [x] Reject partial responses whose Content-Range or declared length does not match the requested segment.
+- [x] Add a local HTTP-server regression case for a misreported range.
+- [x] Verify Google Drive filename and extension detection via the UC download endpoint.
+- [x] Verify the licence online once per day and block the app until the server confirms it.
+- [x] Add a **Remove licence** button so a previous key can be unregistered before entering a new one.
+- [x] Add an hourly silent app-update check with one-click auto download and install from settings.
 - [ ] Run the checklist on clean Windows 10 and Windows 11 systems before a public release.
 
 ### Download recovery and data integrity

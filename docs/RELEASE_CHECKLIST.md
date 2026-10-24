@@ -4,14 +4,18 @@ Use this checklist for each Windows release. The product version comes from
 `Directory.Build.props`; `build.ps1` passes it to Inno Setup and checks required
 publish files before attempting to package them.
 
-## ADM 1.2.0 release record
+## ADM 1.3.1 release record
 
-- Final installer: `artifacts\installer\ADM-Setup-1.2.0.exe`
+- Final installer: `artifacts\installer\ADM-Setup-1.3.1.exe`
 - Runtime: Windows x64, self-contained single-file desktop application
 - Branding: final ADM logo with transparent rounded corners in the app, tray,
   shortcuts, installer and browser extension
 - Validation: engine harness passed; publish and Inno Setup packaging succeeded
 - Signing: unsigned
+- New: hourly silent app-update check with one-click auto download and install
+- New: Google Drive filename/extension detection
+- New: online licence verification once per day; Remove licence button
+- Tests: skipped (`-SkipTests`) for this local build; re-run the engine harness on a clean machine.
 
 ## Build and package
 

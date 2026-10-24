@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private bool _videoDialogOpen;
     private bool _exitRequested;
     private bool _trayNoticeShown;
+    private bool _runtimeInitialized;
     private TrayIconService? _tray;
     private NotificationService? _notifications;
 
@@ -105,6 +106,20 @@ public partial class MainWindow : Window
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         AddUrlBox.Focus();
+        EnsureRuntimeInitialized();
+    }
+
+    /// <summary>
+    /// Wires up the view-model events, the notification-area icon and the
+    /// notification service. Safe to call without ever showing the window, so
+    /// ADM can run headless in the tray from a Windows start.
+    /// </summary>
+    private void EnsureRuntimeInitialized()
+    {
+        if (_runtimeInitialized)
+            return;
+
+        _runtimeInitialized = true;
 
         if (DataContext is MainViewModel viewModel)
         {
@@ -122,6 +137,13 @@ public partial class MainWindow : Window
             model.AttachNotifications(_notifications);
             model.ApplyClipboardMonitoring();
         }
+    }
+
+    /// <summary>Starts ADM hidden in the notification area (Windows start / --minimized).</summary>
+    public void StartHidden()
+    {
+        EnsureRuntimeInitialized();
+        Hide();
     }
 
     /// <summary>Keeps the view model's selection in step with the list.</summary>
@@ -335,7 +357,7 @@ public partial class MainWindow : Window
             if (dialog.ShowDialog() == true)
             {
                 viewModel.ApplySettings();
-                StartupRegistration.Apply(viewModel.Settings.StartWithWindows);
+                StartupRegistration.Apply(viewModel.Settings.StartWithWindows, viewModel.Settings.StartInTray);
             }
         }
         catch (Exception ex)

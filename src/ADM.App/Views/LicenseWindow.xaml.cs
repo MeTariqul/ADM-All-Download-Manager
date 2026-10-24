@@ -83,6 +83,30 @@ public partial class LicenseWindow : Window
         else
             ExpiryText.Text = string.Empty;
 
+        if (status.IsLicensed)
+        {
+            // A licence that the server confirmed needs no key box, no email
+            // request and no app key editor. Only a thank you and the option to
+            // remove the licence so a different key can be entered.
+            ThankTitleText.Text = "Thank you for activating ADM.";
+            ThankBodyText.Text = "Your licence is active and confirmed by the server.";
+            ThankExpiryText.Text = status.ExpiresAt is { } exp
+                ? "This licence is valid until " + exp.LocalDateTime.ToString("d MMM yyyy") + "."
+                : "This licence does not expire.";
+            ThankPanel.Visibility = Visibility.Visible;
+            ActivatePanel.Visibility = Visibility.Collapsed;
+            TrialPanel.Visibility = Visibility.Collapsed;
+            AppKeyWarning.Visibility = Visibility.Collapsed;
+            RemoveButton.Visibility = Visibility.Visible;
+            ActivateButton.IsEnabled = false;
+            return;
+        }
+
+        // Not licensed: show the activation panel again.
+        ThankPanel.Visibility = Visibility.Collapsed;
+        ActivatePanel.Visibility = Visibility.Visible;
+        RemoveButton.Visibility = Visibility.Collapsed;
+
         // A refusal is the only reliable sign that the app key may be wrong,
         // because the server answers a bad licence key and a bad app key in
         // the same way.
@@ -252,5 +276,15 @@ public partial class LicenseWindow : Window
     {
         UserCancelled = true;
         Close();
+    }
+
+    private async void OnRemoveLicence(object sender, RoutedEventArgs e)
+    {
+        _license.Clear();
+        StatusText.Text = "The licence was removed. Enter a new key to activate.";
+        ExpiryText.Text = string.Empty;
+        ActivateButton.IsEnabled = true;
+        ActivateButton.Content = "Activate";
+        await RefreshAsync();
     }
 }

@@ -26,6 +26,7 @@ public partial class App : Application
     private PipeServer? _pipeServer;
     private LicenseService? _license;
     private DispatcherTimer? _trialTimer;
+    private DispatcherTimer? _updateTimer;
     private bool _runningOnTrial;
 
     protected override async void OnStartup(StartupEventArgs e)
@@ -76,7 +77,27 @@ public partial class App : Application
             _viewModel = new MainViewModel(_manager, settingsStore);
             var window = new MainWindow { DataContext = _viewModel };
             MainWindow = window;
-            window.Show();
+
+            // A Windows-started ADM (--minimized) runs in the notification
+            // area without opening the main window. A launch with a URL always
+            // shows the window, so the user sees what happened to the link.
+            bool startInTray = IsMinimizedLaunch(e.Args) && !e.Args.Any(IsHttpUrl);
+            if (startInTray)
+            {
+                DiagnosticsLog.Info("ADM started in the notification area.");
+                window.StartHidden();
+            }
+            else
+            {
+                window.Show();
+            }
+
+            // Older installs have a Run entry without the tray flag. Rewrite
+            // it (when present) so the Windows start honours the tray setting.
+            if (settings.StartWithWindows)
+                StartupRegistration.Apply(enabled: true, settings.StartInTray);
+            else
+                StartupRegistration.RefreshExisting(settings.StartInTray);
 
             if (_runningOnTrial)
                 StartTrialMonitor(window);
@@ -104,6 +125,7 @@ public partial class App : Application
 
             _ = AutoUpdateVideoEngineAsync();
             _ = CheckForAppUpdateAsync();
+            StartAppUpdateTimer(window);
 
             foreach (var argument in e.Args.Where(IsHttpUrl))
             {
@@ -136,28 +158,76 @@ public partial class App : Application
     /// Tells the user when a newer ADM release is published. The download is
     /// left to the browser, so the app never replaces itself.
     /// </summary>
-    private async Task CheckForAppUpdateAsync()
+    private async Task CheckForAppUpdateAsync(bool silent = false)
     {
         try
         {
+            var settingsStore = new SettingsStore();
+            var settings = settingsStore.Load();
+
             var service = new AppUpdateService();
             var update = await service.CheckAsync();
             if (update is null)
                 return;
 
-            var answer = MessageBox.Show(
-                $"ADM {update.Version} is available.\n\n{update.Notes}\n\nOpen the download page?",
-                "ADM update",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Information);
+            if (!silent)
+            {
+                var answer = MessageBox.Show(
+                    $"ADM {update.Version} is available.\n\n{update.Notes}\n\nOpen the download page?",
+                    "ADM update",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Information);
 
-            if (answer == MessageBoxResult.Yes)
-                AppUpdateService.OpenDownload(update);
+                if (answer == MessageBoxResult.Yes)
+                    AppUpdateService.OpenDownload(update);
+                return;
+            }
+
+            if (!settings.AutoUpdateApp && !settings.AutoInstallAppUpdates)
+                return;
+
+            DiagnosticsLog.Info("A newer ADM release is available (" + update.Version + ").");
+
+            if (settings.AutoInstallAppUpdates)
+            {
+                await AutoInstallAppUpdate(update);
+            }
         }
         catch (Exception ex)
         {
             DiagnosticsLog.Info("The app update check failed: " + ex.Message);
         }
+    }
+
+    private async Task AutoInstallAppUpdate(UpdateInfo update)
+    {
+        try
+        {
+            var service = new AppAutoUpdateService();
+            bool ok = await service.DownloadAndInstallAsync(update);
+            if (ok)
+                DiagnosticsLog.Info("Started ADM installer for " + update.Version + ".");
+            else
+                DiagnosticsLog.Info("Could not start the ADM installer for " + update.Version + ".");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.Warn("The automatic app update failed: " + ex.Message, ex);
+        }
+    }
+
+    private void StartAppUpdateTimer(Window window)
+    {
+        _updateTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromHours(1)
+        };
+        _updateTimer.Tick += async (_, _) =>
+        {
+            try { await CheckForAppUpdateAsync(silent: true); }
+            catch { }
+        };
+        _updateTimer.Start();
     }
 
     /// <summary>
@@ -404,14 +474,26 @@ public partial class App : Application
         Uri.TryCreate(value, UriKind.Absolute, out var uri) &&
         (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
 
+    /// <summary>True when the launch asked for the notification-area start.</summary>
+    private static bool IsMinimizedLaunch(string[] args) =>
+        args.Any(arg =>
+            arg.Equals(StartupRegistration.MinimizedArgument, StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("/minimized", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("--tray", StringComparison.OrdinalIgnoreCase) ||
+            arg.Equals("/tray", StringComparison.OrdinalIgnoreCase));
+
     /// <summary>Sends this launch's URL to the already running instance, then exits.</summary>
     private static void ForwardToRunningInstance(string[] args)
     {
         try
         {
             var url = args.FirstOrDefault(IsHttpUrl);
+
+            // A background start must not pop the window of the running copy.
             var message = url is null
-                ? new PipeMessage { Action = "SHOW" }
+                ? IsMinimizedLaunch(args)
+                    ? new PipeMessage { Action = "PING" }
+                    : new PipeMessage { Action = "SHOW" }
                 : VideoUrlDetector.IsDirectMediaFile(url)
                     ? new PipeMessage { Action = "ADD_DOWNLOAD", Url = url }
                     : VideoUrlDetector.IsKnownVideoSite(url)

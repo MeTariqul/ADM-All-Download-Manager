@@ -1,6 +1,7 @@
 using System.IO;
 using System.Diagnostics;
 using System.Windows;
+using Adm.App.Services;
 using Adm.Core.Licensing;
 using Adm.Core.Media;
 using Adm.Core.Models;
@@ -27,6 +28,10 @@ public partial class SettingsWindow : Window
         RefreshSavedTypesText();
         AutoResumeCheck.IsChecked = settings.AutoResumeOnStartup;
         StartWithWindowsCheck.IsChecked = settings.StartWithWindows;
+        StartInTrayCheck.IsChecked = settings.StartInTray;
+        StartInTrayCheck.IsEnabled = settings.StartWithWindows;
+        StartWithWindowsCheck.Checked += (_, _) => StartInTrayCheck.IsEnabled = true;
+        StartWithWindowsCheck.Unchecked += (_, _) => StartInTrayCheck.IsEnabled = false;
         ConfirmDeleteCheck.IsChecked = settings.ConfirmBeforeDelete;
         NotifyCheck.IsChecked = settings.NotifyOnComplete;
         ClipboardCheck.IsChecked = settings.MonitorClipboard;
@@ -38,6 +43,12 @@ public partial class SettingsWindow : Window
         SubtitlesCheck.IsChecked = settings.DownloadSubtitles;
         AutoUpdateCheck.IsChecked = settings.AutoUpdateYtDlp;
         AllowPlaylistsCheck.IsChecked = settings.AllowPlaylists;
+
+        AutoUpdateAppCheck.IsChecked = settings.AutoUpdateApp;
+        AutoInstallAppUpdatesCheck.IsChecked = settings.AutoInstallAppUpdates;
+        AppUpdateFeedText.Text = string.IsNullOrWhiteSpace(settings.AppUpdateFeedUrl)
+            ? "Feed: default release feed"
+            : "Feed: " + settings.AppUpdateFeedUrl;
 
         ProxyBox.Text = settings.ProxyUrl ?? string.Empty;
         ProxyUserBox.Text = settings.ProxyUsername ?? string.Empty;
@@ -316,6 +327,7 @@ public partial class SettingsWindow : Window
         _settings.AskBeforeDownload = AskBeforeDownloadCheck.IsChecked == true;
         _settings.AutoResumeOnStartup = AutoResumeCheck.IsChecked == true;
         _settings.StartWithWindows = StartWithWindowsCheck.IsChecked == true;
+        _settings.StartInTray = StartInTrayCheck.IsChecked == true;
         _settings.ConfirmBeforeDelete = ConfirmDeleteCheck.IsChecked == true;
         _settings.NotifyOnComplete = NotifyCheck.IsChecked == true;
         _settings.MonitorClipboard = ClipboardCheck.IsChecked == true;
@@ -327,6 +339,9 @@ public partial class SettingsWindow : Window
         _settings.DownloadSubtitles = SubtitlesCheck.IsChecked == true;
         _settings.AutoUpdateYtDlp = AutoUpdateCheck.IsChecked == true;
         _settings.AllowPlaylists = AllowPlaylistsCheck.IsChecked == true;
+
+        _settings.AutoUpdateApp = AutoUpdateAppCheck.IsChecked == true;
+        _settings.AutoInstallAppUpdates = AutoInstallAppUpdatesCheck.IsChecked == true;
 
         _settings.ProxyUrl = NullIfEmpty(ProxyBox.Text);
         _settings.ProxyUsername = NullIfEmpty(ProxyUserBox.Text);
@@ -349,6 +364,31 @@ public partial class SettingsWindow : Window
         _settings.ScheduledStopTime = stopTime;
 
         DialogResult = true;
+    }
+
+    private async void OnCheckAppUpdate(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var service = new AppAutoUpdateService();
+            var update = await service.CheckAsync();
+            if (update is null)
+            {
+                MessageBox.Show(this, "ADM is up to date.", "App update",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            MessageBox.Show(this, $"ADM {update.Version} is available.\n\n{update.Notes}\n\nThe installer will open to complete the update.",
+                "App update", MessageBoxButton.OK, MessageBoxImage.Information);
+
+            await service.DownloadAndInstallAsync(update);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, "The update check failed:\n\n" + ex.Message, "App update",
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     /// <summary>Parses a "hh:mm" time, returning null when the text is not valid.</summary>

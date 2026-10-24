@@ -26,6 +26,9 @@ public sealed class AppSettings
 
     public bool StartWithWindows { get; set; }
 
+    /// <summary>When Windows starts ADM, run in the system tray instead of opening the main window.</summary>
+    public bool StartInTray { get; set; } = true;
+
     /// <summary>When enabled, the browser extension hands downloads to ADM automatically.</summary>
     public bool InterceptBrowserDownloads { get; set; } = true;
 
@@ -113,6 +116,20 @@ public sealed class AppSettings
     /// <summary>Check the bundled yt-dlp for a newer version on startup.</summary>
     public bool AutoUpdateYtDlp { get; set; } = true;
 
+    // -------------------------------------------------------------- app update
+
+    /// <summary>Look for a newer ADM release in the background.</summary>
+    public bool AutoUpdateApp { get; set; } = true;
+
+    /// <summary>How often ADM looks for a newer release, in hours.</summary>
+    public int AppUpdateIntervalHours { get; set; } = 1;
+
+    /// <summary>URL of the app release feed.</summary>
+    public string? AppUpdateFeedUrl { get; set; }
+
+    /// <summary>True when a newer release may be installed without asking.</summary>
+    public bool AutoInstallAppUpdates { get; set; }
+
     // -------------------------------------------------------------- scheduler
 
     /// <summary>Start queued downloads at this local time. Null means "as soon as possible".</summary>
@@ -146,8 +163,9 @@ public sealed class AppSettings
         MaxConnections = Math.Clamp(MaxConnections, 1, 32);
         MaxConcurrentDownloads = Math.Clamp(MaxConcurrentDownloads, 1, 16);
         SpeedLimitBytesPerSecond = Math.Max(0, SpeedLimitBytesPerSecond);
-        MaxRetries = Math.Clamp(MaxRetries, 0, 50);
-        AudioBitrateKbps = Math.Clamp(AudioBitrateKbps, 32, 320);
+MaxRetries = Math.Clamp(MaxRetries, 0, 50);
+        AudioBitrateKbps = Math.Clamp(AudioBitrateKbps, 32, 240);
+        AppUpdateIntervalHours = Math.Clamp(AppUpdateIntervalHours, 1, 720);
 
         if (string.IsNullOrWhiteSpace(UserAgent))
             UserAgent = new AppSettings().UserAgent;

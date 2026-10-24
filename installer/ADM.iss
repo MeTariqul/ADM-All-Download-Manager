@@ -49,7 +49,7 @@ Root: HKCU; Subkey: "Software\Chromium\NativeMessagingHosts\com.adm.downloadmana
 ; Firefox.
 Root: HKCU; Subkey: "Software\Mozilla\NativeMessagingHosts\com.adm.downloadmanager"; ValueType: string; ValueName: ""; ValueData: "{app}\native\com.adm.downloadmanager.firefox.json"; Flags: uninsdeletekey
 ; Optional autostart.
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ADM"; ValueData: """{app}\ADM.exe"""; Tasks: startup; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "ADM"; ValueData: """{app}\ADM.exe"" --minimized"; Tasks: startup; Flags: uninsdeletevalue
 
 [Run]
 Filename: "{app}\ADM.exe"; Description: "Launch ADM All Download Manager"; Flags: nowait postinstall skipifsilent

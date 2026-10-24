@@ -1,12 +1,12 @@
 # ADM capability matrix
 
-ADM 1.2.0 implements the download-manager features used in its supported
+ADM 1.3.1 implements the download-manager features used in its supported
 Windows workflow.
 
 The published workspace image is [`screenshot.png`](screenshot.png). It shows
 the final ADM light theme and logo used by this release.
 
-| Capability | ADM 1.2.0 |
+| Capability | ADM 1.3.1 |
 | --- | --- |
 | Segmented HTTP/HTTPS downloads | Implemented: parallel ranges, dynamic splitting, resume and fallback for servers without ranges. |
 | FTP and FTPS | Implemented: built-in client and `REST` resume. |
