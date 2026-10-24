@@ -7,9 +7,9 @@ download queues, a speed limiter, and browser download capture. Video and audio
 pages are handled by the bundled **yt-dlp** engine, so YouTube and many other
 sites download as complete MP4/MKV/MP3 files instead of separate streams.
 
-![ADM 1.2.0 workspace](docs/screenshot.png)
+![ADM 1.3.1 workspace](docs/screenshot.png)
 
-*ADM 1.2.0 workspace with the final silver, navy and cyan ADM brand.*
+*ADM 1.3.1 workspace with the final silver, navy and cyan ADM brand.*
 
 ## Features
 
@@ -191,7 +191,7 @@ Temporary add-ons last until Firefox closes; permanent installation requires
 Mozilla signing.
 
 See [`extension/README.md`](extension/README.md) for extension behaviour and
-development details. ADM 1.2.0 release notes and production checks are in
+development details. ADM 1.3.1 release notes and production checks are in
 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
 
 ## Project layout

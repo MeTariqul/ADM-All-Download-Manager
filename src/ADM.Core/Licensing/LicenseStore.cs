@@ -4,22 +4,25 @@ using System.Text.Json.Serialization;
 namespace Adm.Core.Licensing;
 
 /// <summary>What is stored on disk about the licence.</summary>
-public sealed class LicenseRecord
-{
-    public string? Key { get; set; }
-
-    /// <summary>The signed token.</summary>
-    public string? Token { get; set; }
-
-    public DateTimeOffset ActivatedAt { get; set; }
-
-    public static LicenseRecord FromItem(string key, string token) => new()
+    public sealed class LicenseRecord
     {
-        Key = key,
-        Token = token,
-        ActivatedAt = DateTimeOffset.Now
-    };
-}
+        public string? Key { get; set; }
+
+        /// <summary>The signed token.</summary>
+        public string? Token { get; set; }
+
+        public DateTimeOffset ActivatedAt { get; set; }
+
+        /// <summary>The last time the server confirmed the licence.</summary>
+        public DateTimeOffset LastVerifiedAt { get; set; }
+
+        public static LicenseRecord FromItem(string key, string token) => new()
+        {
+            Key = key,
+            Token = token,
+            ActivatedAt = DateTimeOffset.Now
+        };
+    }
 
 /// <summary>Stores the licence next to the other settings.</summary>
 public sealed class LicenseStore

@@ -49,7 +49,27 @@ public sealed class LicenseService
     /// </summary>
     public async Task<LicenseStatus> CheckAsync(CancellationToken cancellationToken = default)
     {
+        // Always verify the token offline first (signature, device, expiry).
+        // Only contact the server for activation, refresh, or when the daily
+        // online check is due (once every 24 hours).
         var record = _store.Load();
+        bool serverCheckDue = true;
+        if (record is not null &&
+            !string.IsNullOrWhiteSpace(record.Token) &&
+            !string.IsNullOrWhiteSpace(record.Key))
+        {
+            var token = LicenseToken.Parse(record.Token);
+            if (token is not null && token.VerifySignature(_publicKeyPem))
+            {
+                // Daily check: skip the network call when we verified within
+                // the last day and the token has not asked for a re-check.
+                if (token.Claims.RecheckAt == 0 ||
+                    !token.Claims.NeedsRecheck(DateTimeOffset.Now))
+                {
+                    serverCheckDue = (DateTimeOffset.Now - record.LastVerifiedAt) >= TimeSpan.FromDays(1);
+                }
+            }
+        }
 
         if (record is null || string.IsNullOrWhiteSpace(record.Token) || string.IsNullOrWhiteSpace(record.Key))
         {
@@ -63,8 +83,8 @@ public sealed class LicenseService
             return _status;
         }
 
-        var token = LicenseToken.Parse(record.Token);
-        if (token is null)
+        var freshToken = LicenseToken.Parse(record.Token);
+        if (freshToken is null)
         {
             _status = new LicenseStatus
             {
@@ -77,7 +97,7 @@ public sealed class LicenseService
             return _status;
         }
 
-        if (!token.VerifySignature(_publicKeyPem))
+        if (!freshToken.VerifySignature(_publicKeyPem))
         {
             _status = new LicenseStatus
             {
@@ -91,8 +111,8 @@ public sealed class LicenseService
         }
 
         // The token must belong to this machine.
-        if (!string.IsNullOrEmpty(token.Claims.DeviceId) &&
-            !string.Equals(token.Claims.DeviceId, DeviceId, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrEmpty(freshToken.Claims.DeviceId) &&
+            !string.Equals(freshToken.Claims.DeviceId, DeviceId, StringComparison.OrdinalIgnoreCase))
         {
             _status = new LicenseStatus
             {
@@ -100,13 +120,13 @@ public sealed class LicenseService
                 Message = "This licence was issued for a different device.",
                 Key = record.Key,
                 DeviceId = DeviceId,
-                ExpiresAt = token.Claims.ExpiresAtDate
+                ExpiresAt = freshToken.Claims.ExpiresAtDate
             };
 
             return _status;
         }
 
-        if (token.Claims.IsExpired(DateTimeOffset.Now))
+        if (freshToken.Claims.IsExpired(DateTimeOffset.Now))
         {
             _status = new LicenseStatus
             {
@@ -114,77 +134,80 @@ public sealed class LicenseService
                 Message = "This licence has expired.",
                 Key = record.Key,
                 DeviceId = DeviceId,
-                ExpiresAt = token.Claims.ExpiresAtDate
+                ExpiresAt = freshToken.Claims.ExpiresAtDate
             };
 
             return _status;
         }
 
-        // The token is still good, but the server wants to confirm it.
-        if (token.Claims.NeedsRecheck(DateTimeOffset.Now))
+        if (!serverCheckDue)
         {
-            var response = await _client.VerifyAsync(record.Key!, DeviceId, cancellationToken).ConfigureAwait(false);
-
-            if (response.Ok && !string.IsNullOrWhiteSpace(response.Token))
-            {
-                _store.Save(LicenseRecord.FromItem(record.Key!, response.Token!));
-
-                var refreshed = LicenseToken.Parse(response.Token);
-                _status = new LicenseStatus
-                {
-                    State = LicenseState.Active,
-                    Message = "Licence confirmed.",
-                    Key = record.Key,
-                    DeviceId = DeviceId,
-                    ExpiresAt = refreshed?.Claims.ExpiresAtDate,
-                    RecheckAt = refreshed?.Claims.RecheckAtDate
-                };
-
-                DiagnosticsLog.Info("The licence was confirmed online.");
-                return _status;
-            }
-
-            if (response.IsNetworkError)
-            {
-                // The server cannot be reached. The signed token is still valid
-                // until it expires, so the app keeps working until then.
-                _status = new LicenseStatus
-                {
-                    State = LicenseState.Unreachable,
-                    Message = "The licence server could not be reached. ADM keeps working until the licence expires.",
-                    Key = record.Key,
-                    DeviceId = DeviceId,
-                    ExpiresAt = token.Claims.ExpiresAtDate,
-                    RecheckAt = token.Claims.RecheckAtDate
-                };
-
-                DiagnosticsLog.Info("The licence server could not be reached: " + response.Error);
-                return _status;
-            }
-
+            // Already verified online within the last 24 hours; keep the
+            // cached status as active without hitting the server again.
             _status = new LicenseStatus
             {
-                State = LicenseStatus.FromServerStatus(response.Status),
-                Message = response.Error ?? "The licence is no longer valid.",
+                State = LicenseState.Active,
+                Message = "Licence confirmed.",
                 Key = record.Key,
                 DeviceId = DeviceId,
-                ExpiresAt = token.Claims.ExpiresAtDate
+                ExpiresAt = freshToken.Claims.ExpiresAtDate,
+                RecheckAt = freshToken.Claims.RecheckAtDate
+            };
+            return _status;
+        }
+
+        // Verify with the server once per day (mandatory online check).
+        var response = await _client.VerifyAsync(record.Key!, DeviceId, cancellationToken).ConfigureAwait(false);
+
+        if (response.Ok && !string.IsNullOrWhiteSpace(response.Token))
+        {
+            var stored = LicenseRecord.FromItem(record.Key!, response.Token!);
+            stored.LastVerifiedAt = DateTimeOffset.Now;
+            _store.Save(stored);
+
+            var refreshed = LicenseToken.Parse(response.Token);
+            _status = new LicenseStatus
+            {
+                State = LicenseState.Active,
+                Message = "Licence confirmed by server.",
+                Key = record.Key,
+                DeviceId = DeviceId,
+                ExpiresAt = refreshed?.Claims.ExpiresAtDate,
+                RecheckAt = refreshed?.Claims.RecheckAtDate
             };
 
-            DiagnosticsLog.Warn("The licence was refused by the server: " + _status.Message);
+            DiagnosticsLog.Info("The licence was confirmed online.");
+            return _status;
+        }
+
+        if (response.IsNetworkError)
+        {
+            // Network unreachable: deny access unless a short grace period applies.
+            // The token itself remains valid; the user just needs to be online once.
+            _status = new LicenseStatus
+            {
+                State = LicenseState.Unreachable,
+                Message = "The licence server could not be reached. ADM needs an internet connection to verify the licence.",
+                Key = record.Key,
+                DeviceId = DeviceId,
+                ExpiresAt = freshToken.Claims.ExpiresAtDate,
+                RecheckAt = freshToken.Claims.RecheckAtDate
+            };
+
+            DiagnosticsLog.Warn("The licence server could not be reached: " + response.Error);
             return _status;
         }
 
         _status = new LicenseStatus
         {
-            State = LicenseState.Active,
-            Message = "Licence verified offline.",
+            State = LicenseStatus.FromServerStatus(response.Status),
+            Message = response.Error ?? "The licence is no longer valid.",
             Key = record.Key,
             DeviceId = DeviceId,
-            ExpiresAt = token.Claims.ExpiresAtDate,
-            RecheckAt = token.Claims.RecheckAtDate
+            ExpiresAt = freshToken.Claims.ExpiresAtDate
         };
 
+        DiagnosticsLog.Warn("The licence was refused by the server: " + _status.Message);
         return _status;
     }
 
