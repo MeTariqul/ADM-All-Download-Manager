@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ADM — All Download Manager</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, sans-serif;
+      background: #f4f6f9;
+      color: #16213a;
+      display: flex;
+      justify-content: center;
+      padding: 60px 20px;
+    }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0e1420; color: #e7ecf5; }
+      .card { background: #161f2e !important; border-color: #26314a !important; }
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #dfe4ec;
+      border-radius: 16px;
+      padding: 40px;
+      max-width: 560px;
+      width: 100%;
+      box-shadow: 0 8px 30px rgba(20, 35, 70, 0.07);
+    }
+    h1 { margin: 0 0 6px; font-size: 26px; }
+    .sub { margin: 0 0 24px; color: #67748f; font-size: 14px; }
+    .dl {
+      display: block;
+      text-align: center;
+      text-decoration: none;
+      background: #1f6feb;
+      color: #fff;
+      font-weight: 600;
+      padding: 14px 18px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .dl:hover { background: #1a5fd0; }
+    .meta { font-size: 12.5px; color: #67748f; text-align: center; margin-bottom: 26px; }
+    ul { margin: 0; padding-left: 18px; line-height: 1.7; font-size: 14px; }
+    .hash {
+      font-family: Consolas, monospace;
+      font-size: 11px;
+      word-break: break-all;
+      color: #67748f;
+      background: rgba(127, 143, 175, 0.1);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-top: 22px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>ADM — All Download Manager</h1>
+    <p class="sub">Windows download manager with a segmented HTTP engine, browser capture and yt-dlp video downloads.</p>
+
+    <a class="dl" href="ADM-Setup-1.3.1.exe" download>Download ADM 1.3.1 for Windows</a>
+    <p class="meta">Version 1.3.1 &middot; win-x64 &middot; self-contained &middot; ~137 MB</p>
+
+    <ul>
+      <li>Segmented downloads with up to 32 parallel connections</li>
+      <li>Pause and resume across restarts, queues and a speed limiter</li>
+      <li>Video and audio downloads via the bundled yt-dlp engine</li>
+      <li>Chromium and Firefox extension for browser capture</li>
+      <li>Starts silently in the system tray at Windows startup</li>
+    </ul>
+
+    <p class="hash" id="sha">SHA-256: __SHA256__</p>
+  </div>
+</body>
+</html>
