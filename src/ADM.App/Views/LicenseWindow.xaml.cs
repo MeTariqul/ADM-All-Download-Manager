@@ -33,6 +33,13 @@ public partial class LicenseWindow : Window
         // warning based on it would be a guess.
         AppKeyWarning.Visibility = Visibility.Collapsed;
 
+        // Until the online check answers, neither the key box nor the thank-you
+        // panel is shown, so a licensed copy never flashes the key form.
+        CheckingPanel.Visibility = Visibility.Visible;
+        ThankPanel.Visibility = Visibility.Collapsed;
+        ActivatePanel.Visibility = Visibility.Collapsed;
+        RemoveButton.Visibility = Visibility.Collapsed;
+
         if (trial is not null)
         {
             TrialPanel.Visibility = Visibility.Visible;
@@ -73,6 +80,8 @@ public partial class LicenseWindow : Window
 
     private void Apply(LicenseStatus status)
     {
+        CheckingPanel.Visibility = Visibility.Collapsed;
+
         StatusText.Text = status.Message;
         StatusText.Foreground = status.IsLicensed
             ? (System.Windows.Media.Brush)FindResource("SuccessBrush")
@@ -86,10 +95,14 @@ public partial class LicenseWindow : Window
         if (status.IsLicensed)
         {
             // A licence that the server confirmed needs no key box, no email
-            // request and no app key editor. Only a thank you and the option to
-            // remove the licence so a different key can be entered.
-            ThankTitleText.Text = "Thank you for activating ADM.";
-            ThankBodyText.Text = "Your licence is active and confirmed by the server.";
+            // request and no app key editor. The key is locked to this device
+            // until the user unregisters it, so a different key can only be
+            // entered after that.
+            TitleText.Text = "ADM licence";
+            SubtitleText.Text = "Your licence is active. To use a different key, unregister this one first.";
+            ThankTitleText.Text = "ADM is activated.";
+            ThankBodyText.Text = "Your licence is active and confirmed by the server. " +
+                                 "This key stays registered to this device until you unregister it below.";
             ThankExpiryText.Text = status.ExpiresAt is { } exp
                 ? "This licence is valid until " + exp.LocalDateTime.ToString("d MMM yyyy") + "."
                 : "This licence does not expire.";
@@ -103,9 +116,16 @@ public partial class LicenseWindow : Window
         }
 
         // Not licensed: show the activation panel again.
+        TitleText.Text = "Activate ADM";
+        SubtitleText.Text = "Enter your licence key, request one by email, or use the included seven-day trial.";
         ThankPanel.Visibility = Visibility.Collapsed;
         ActivatePanel.Visibility = Visibility.Visible;
-        RemoveButton.Visibility = Visibility.Collapsed;
+
+        // Unregistering only makes sense when a key is still stored on this
+        // device; a fresh install has nothing to release.
+        RemoveButton.Visibility = string.IsNullOrWhiteSpace(_license.StoredKey)
+            ? Visibility.Collapsed
+            : Visibility.Visible;
 
         // A refusal is the only reliable sign that the app key may be wrong,
         // because the server answers a bad licence key and a bad app key in
@@ -280,11 +300,48 @@ public partial class LicenseWindow : Window
 
     private async void OnRemoveLicence(object sender, RoutedEventArgs e)
     {
-        _license.Clear();
-        StatusText.Text = "The licence was removed. Enter a new key to activate.";
-        ExpiryText.Text = string.Empty;
-        ActivateButton.IsEnabled = true;
-        ActivateButton.Content = "Activate";
-        await RefreshAsync();
+        if (_busy)
+            return;
+
+        string key = _license.StoredKey ?? string.Empty;
+        string shown = string.IsNullOrWhiteSpace(key) ? "this key" : key;
+        var answer = MessageBox.Show(
+            this,
+            $"Unregister {shown} from this device?\n\n" +
+            "The key is released, so it can be activated again later or on another device. " +
+            "A different key can then be entered here.",
+            "Unregister key",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+        if (answer != MessageBoxResult.Yes)
+            return;
+
+        _busy = true;
+        RemoveButton.IsEnabled = false;
+        CheckingText.Text = "Unregistering the key with the licence server…";
+        CheckingPanel.Visibility = Visibility.Visible;
+        ThankPanel.Visibility = Visibility.Collapsed;
+        ActivatePanel.Visibility = Visibility.Collapsed;
+
+        try
+        {
+            var status = await _license.UnregisterAsync();
+            StatusText.Text = status.Message;
+            KeyBox.Text = string.Empty;
+            EmailBox.Text = string.Empty;
+            Apply(status);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = "The key could not be unregistered: " + ex.Message;
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+            RemoveButton.IsEnabled = true;
+            ActivateButton.IsEnabled = true;
+        }
     }
 }

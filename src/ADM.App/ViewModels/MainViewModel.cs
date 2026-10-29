@@ -78,6 +78,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         PauseAllCommand = new RelayCommand(_ => PauseAll());
         ResumeAllCommand = new RelayCommand(_ => ResumeAll());
         ClearCompletedCommand = new RelayCommand(_ => ClearCompleted());
+        GrabSiteCommand = new RelayCommand(_ => GrabSite());
         SelectCategoryCommand = new RelayCommand(parameter =>
         {
             if (parameter is CategoryItem category)
@@ -148,6 +149,14 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public ICommand ResumeAllCommand { get; }
 
     public ICommand ClearCompletedCommand { get; }
+    public ICommand GrabSiteCommand { get; }
+
+    public void GrabSite()
+    {
+        var win = new Views.SiteGrabberWindow(this);
+        win.Owner = Application.Current.MainWindow;
+        win.ShowDialog();
+    }
 
     public ICommand SelectCategoryCommand { get; }
 

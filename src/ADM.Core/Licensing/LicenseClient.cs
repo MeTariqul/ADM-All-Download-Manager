@@ -81,6 +81,22 @@ public sealed class LicenseClient
     }
 
     /// <summary>
+    /// Unregisters a license key from a device, so the device slot is released
+    /// and a different key can be activated.
+    /// </summary>
+    public async Task<LicenseResponse> DeactivateAsync(string key, string deviceId,
+        CancellationToken cancellationToken = default)
+    {
+        var payload = new Dictionary<string, string>
+        {
+            ["key"] = key,
+            ["deviceId"] = deviceId
+        };
+
+        return await PostAsync("deactivate", payload, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Asks the server for a licence key for an address. The dashboard can be
     /// set to hand the key out straight away, so the reply may already carry
     /// it; otherwise it arrives by mail.

@@ -71,8 +71,11 @@ public sealed class LicenseStatus
     /// <summary>The device this licence is bound to.</summary>
     public string DeviceId { get; init; } = string.Empty;
 
-    /// <summary>True when the app may run, including during a grace period.</summary>
-    public bool CanRun => IsLicensed || IsGrace;
+    /// <summary>
+    /// True when the app may run. The licence is verified against the online
+    /// licence database, so an unreachable server means the app cannot run.
+    /// </summary>
+    public bool CanRun => IsLicensed;
 
     /// <summary>A short label for the status line.</summary>
     public string SummaryText => State switch

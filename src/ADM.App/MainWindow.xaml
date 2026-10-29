@@ -310,7 +310,7 @@
                     <TextBlock Text="Download queue" FontSize="16" FontWeight="Bold" />
                     <Border Background="{DynamicResource SurfaceAltBrush}" CornerRadius="8" Padding="8,3" Margin="10,0,0,0">
                         <TextBlock Text="{Binding ItemCount}" FontSize="10.5" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                                    Foreground="{DynamicResource TextSecondaryBrush}" />
                     </Border>
                 </StackPanel>
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -322,13 +322,13 @@
                                 <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="⌕" FontSize="19" Foreground="{DynamicResource TextMutedBrush}"
-                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
                             <Grid Grid.Column="1">
                                 <TextBox x:Name="SearchBox" Style="{StaticResource QuickInput}" FontSize="11.5"
-                                         Padding="2,5" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.Name="Search downloads" />
+                                            Padding="2,5" Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                            AutomationProperties.Name="Search downloads" />
                                 <TextBlock Text="Search downloads" Margin="2,0,0,0" VerticalAlignment="Center"
-                                           Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5" IsHitTestVisible="False">
+                                            Foreground="{DynamicResource TextMutedBrush}" FontSize="11.5" IsHitTestVisible="False">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
                                             <Setter Property="Visibility" Value="Collapsed" />
@@ -343,6 +343,8 @@
                             </Grid>
                         </Grid>
                     </Border>
+                    <Button Content="Grab site" Style="{StaticResource HeaderAction}"
+                            Command="{Binding GrabSiteCommand}" Margin="0,0,6,0" />
                     <Button Content="Pause all" Style="{StaticResource HeaderAction}"
                             Command="{Binding PauseAllCommand}" Margin="0,0,6,0" />
                     <Button Content="Resume all" Style="{StaticResource HeaderAction}"

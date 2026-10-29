@@ -1,395 +1,295 @@
 # ADM — All Download Manager
 
-A Windows download manager built with **.NET 8** and **WPF**, with a segmented
-HTTP engine, a browser extension, and a Windows installer. It is an IDM-style
-desktop app: multiple connections per file, pause/resume across restarts,
-download queues, a speed limiter, and browser download capture. Video and audio
-pages are handled by the bundled **yt-dlp** engine, so YouTube and many other
-sites download as complete MP4/MKV/MP3 files instead of separate streams.
+ADM is a high-performance, IDM-style download manager built with **.NET 8**, **WPF**, and an MVVM architecture. It accelerates HTTP(S) downloads via concurrent segmented transfers, handles FTP/FTPS, integrates with browsers through a native-messaging extension, and extracts video/audio from supported sites using the bundled **yt-dlp** engine.
 
-![ADM 1.3.1 workspace](docs/screenshot.png)
+![ADM workspace](docs/screenshot.png)
 
-*ADM 1.3.1 workspace with the final silver, navy and cyan ADM brand.*
+*ADM workspace with the silver, navy, and cyan light theme.*
+
+## Table of Contents
+
+- [Features](#features)
+- [Technical Architecture](#technical-architecture)
+- [Prerequisites](#prerequisites)
+- [Build Instructions (Visual Studio)](#build-instructions-visual-studio)
+- [Building the Installer](#building-the-installer)
+- [Browser Extension Setup (Chrome/Firefox)](#browser-extension-setup-chromefirefox)
+- [Native Messaging Configuration](#native-messaging-configuration)
+- [How Downloads Work (SegmentPlanner & SegmentWorker)](#how-downloads-work-segmentplanner--segmentworker)
+- [Speed Limiting](#speed-limiting)
+- [FTP Client](#ftp-client)
+- [YT-DLP Media Extraction](#yt-dlp-media-extraction)
+- [Licensing](#licensing)
+- [Storage Locations](#storage-locations)
+- [Diagnostics & Logs](#diagnostics--logs)
+- [License & Third-Party Notices](#license--third-party-notices)
 
 ## Features
 
-- **Segmented downloads** — probes the server, splits the file into ranges and
-  downloads them in parallel (up to 32 connections). Slow segments can be split
-  again while the download runs.
-- **FTP downloads** — `ftp://` and `ftps://` addresses are downloaded with a
-  built-in FTP client, with resume through the `REST` command.
-- **Pause and resume** — partial data is written to a preallocated `.admpart`
-  file, so downloads survive pauses and app restarts without restarting from zero.
-- **Queue** — limits how many downloads run at once, the rest stay queued.
-- **Speed limiter** — global cap applied across all active connections.
-- **Resilient transfers** — retries with backoff, `ETag`/size validation before
-  resuming, single-stream fallback for servers without `Range` support.
-- **Proxy and authentication** — an HTTP/SOCKS proxy with credentials, HTTP basic
-  authentication, and a cookie header for servers that need a session.
-- **Smart guards** — free disk space is checked before a download starts, the
-  same link is never queued twice by accident, and an existing file is renamed
-  instead of being overwritten.
-- **Clipboard monitor** — copy a link anywhere and ADM asks whether to download it.
-- **Per-download options** — set the speed limit, connection count, priority and
-  an expected checksum for a single download.
-- **Checksum verification** — compare the finished file with an MD5, SHA1 or
-  SHA256 hash and see the result in the list.
-- **Scheduler** — hold queued downloads until a start time and pause active ones
-  at a stop time.
-- **Search and context menu** — filter the list by name or link, and right-click
-  a row to pause, restart, copy the link, change its options or remove it.
-- **Notifications** — a notification when a download finishes or fails, with an
-  optional "open the file" and "quit when the queue is empty".
-- **Diagnostics log** — a rolling log in `%APPDATA%\ADM\adm.log` for support.
-- **ADM light theme** — a silver, navy and cyan interface derived from the ADM logo.
-- **Video and audio downloads** — paste a YouTube/Vimeo/Twitch/etc. page or click
-  the **Download** button attached to the playing video. A picker shows every
-  available resolution, container (MP4/MKV), audio-only M4A and MP3. Video-only
-  streams are merged with the best audio automatically. Playlists can be
-  downloaded entry by entry, and subtitles are fetched when the site offers them.
-- **Video engine updates** — the bundled yt-dlp updates itself in the
-  background, because site extractors break regularly. A button in the settings
-  window updates it on demand.
-- **Browser capture** — Chromium and Firefox extension that hands downloads to
-  ADM, detects page media, and adds a right-click **Download with ADM** menu plus
-  a **Download video with ADM** item for videos. It also forwards the browser
-  cookies, and can grab every file link on a page at once.
-- **Desktop conveniences** — paste multiple links, drag and drop links, category
-  filters, open file/folder, clear completed, single-instance URL forwarding.
-- **System tray** — closing the window keeps ADM running in the notification
-  area, so downloads continue and the browser extension stays reachable. The
-  tray icon has **Show ADM**, **Pause all**, **Resume all** and **Exit ADM**.
-- **Minimal light UI** — quiet layout, hairline rows, keyboard-friendly quick add.
+- **Segmented HTTP(S) downloads** – Probes servers, splits files into byte ranges, downloads in parallel (up to 32 connections). Slow segments can be dynamically split while downloading.
+- **FTP/FTPS downloads** – Built-in FTP client with `REST` resume support. FTP transfers use a single stream (no range support).
+- **Pause/resume** – Partial data written to `.admpart` files; downloads survive pauses and app restarts.
+- **Queue management** – Limits concurrent downloads; remaining items stay queued.
+- **Speed limiting** – Global token-bucket speed cap applied across all active connections.
+- **Resilient transfers** – Automatic retries with exponential backoff, ETag/Last-Modified validation before resuming, single-stream fallback for servers without `Range` support, strict Content-Range validation.
+- **Proxy & authentication** – HTTP/SOCKS proxy with credentials, HTTP Basic auth, custom cookie headers.
+- **Smart guards** – Disk space checks, duplicate URL detection, configurable file-exists policy (rename/overwrite/skip).
+- **Clipboard monitoring** – Prompts to download copied links.
+- **Per-download options** – Speed limit, connection count, priority, checksum verification (MD5/SHA1/SHA256).
+- **Scheduler** – Start queued downloads at a time and stop active downloads at a time.
+- **Browser integration** – Extension + native messaging host captures links/media from Chrome, Edge, Brave, Chromium, and Firefox.
+- **YT-DLP extraction** – Download video/audio/playlists from supported sites as MP4/MKV/MP3 with format selection, subtitles, and FFmpeg merging.
+- **Ed25519 licensing** – Online daily verification with device binding.
 
-See [`docs/FEATURE_MATRIX.md`](docs/FEATURE_MATRIX.md) for the IDM-style
-capability audit and the next feature work.
+## Technical Architecture
 
-## Requirements
+The solution consists of three main projects and tests:
 
-- Windows 10 or 11
-- To build from source: [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Optional: [Inno Setup 6](https://jrsoftware.org/isinfo.php) to compile the installer
-- For video downloads: `yt-dlp.exe` (required) and `ffmpeg.exe`/`ffprobe.exe`
-  (needed for merged video+audio and MP3). Published builds include them in
-  `tools\`; source builds look in `vendor\` or on `PATH`.
+### Projects
 
-## Quick start
+| Project | Type | Purpose |
+| --- | --- | --- |
+| `src/ADM.App/` | WPF EXE (`net8.0-windows`) | UI layer (MVVM), views, view models, services (tray, startup registration, app updates), and app lifecycle (`App.xaml.cs`). Depends on `ADM.Core`. |
+| `src/ADM.Core/` | Class Library (`net8.0`) | Core domain logic: download engine, networking, media extraction orchestration, licensing, settings, storage, utilities. Platform-agnostic where possible. |
+| `src/ADM.NativeHost/` | Console EXE (`net8.0-windows`) | Native messaging host for browser extensions. Communicates via stdin/stdout with Chrome/Firefox extensions and forwards requests to the ADM app via named pipes (`PipeServer`/`PipeClient`). Depends on `ADM.Core`. |
+| `tests/ADM.Core.Tests/` | Test project | Engine/regression tests. |
 
-```powershell
-# Fetch yt-dlp and ffmpeg into vendor\
-powershell -ExecutionPolicy Bypass -File tools\Get-VideoTools.ps1 -Ffmpeg
+### Separation of Concerns
 
-# Build everything
-dotnet build ADM.sln
+- **ADM.App (Presentation)**: WPF views (`Views/*.xaml`), view models (`ViewModels/MainViewModel.cs`), app services (`App.xaml.cs`, `Services/*`). Handles UI state, user interactions, tray icon, and coordinates with `DownloadManager`. Uses MVVM pattern with `INotifyPropertyChanged`.
+- **ADM.Core (Domain/Infrastructure)**: Business logic in `Engine/` (download orchestration), `Net/` (HTTP/FTP/probes), `Media/` (yt-dlp integration), `Licensing/` (Ed25519 verification, client), `Settings/` (persistence), `Storage/` (download state), `Util/`. Core has no WPF/UI dependencies.
+- **ADM.NativeHost (IPC Bridge)**: Bridges browser extension (native messaging protocol over stdin/stdout) to the running ADM app. Uses `Adm.Core.Ipc.NativeMessagingProtocol` and named pipes to communicate with `Adm.Core.Ipc.PipeServer` in the app.
 
-# Run the app from source
-dotnet run --project src\ADM.App\ADM.App.csproj
-```
+### Key IPC Components
 
-If `dotnet` is not on your PATH but the SDK is installed per-user, use
-`%USERPROFILE%\.dotnet\dotnet.exe` in place of `dotnet`. ffmpeg is only needed
-for merged video+audio and MP3 output; if it is already on your PATH the source
-build uses it and the download can be skipped.
+- `Adm.Core.Ipc.PipeServer` / `PipeClient` – Named pipe communication between NativeHost and ADM.App.
+- `Adm.Core.Ipc.NativeMessagingProtocol` – Native messaging message format for browser extensions.
+- `Adm.Core.Ipc.PipeProtocol` – Pipe message format for app↔host communication.
 
-### Run the engine tests
+### Storage Configuration
 
-The test project is a dependency-free console harness with its own local
-range-capable HTTP server:
+- **Settings**: `%APPDATA%\ADM\settings.json` via `Adm.Core.Settings.SettingsStore`
+- **Downloads state**: `%APPDATA%\ADM\downloads.json` via `Adm.Core.Storage.DownloadStore`
+- **License**: `%APPDATA%\ADM\license.json` via `Adm.Core.Licensing.LicenseStore`
+- **Logs**: Next to settings file, `adm.log` with rotation at 2 MiB (retains one previous copy)
+- **App key override**: `appkey.txt` next to executable for license key override
 
-```powershell
-dotnet run --project tests\ADM.Core.Tests\ADM.Core.Tests.csproj
-```
+## Prerequisites
 
-It covers segment planning, file-name handling, probing, byte-for-byte
-verification of a segmented download, single-stream fallback,
-pause → app restart → resume, video format grouping, URL detection, progress
-parsing, video record persistence, checksums, proxy and basic-auth headers,
-free disk space, the duplicate policy, playlist parsing and the retry backoff.
+- **Windows 10/11**
+- **.NET 8 SDK** (or Visual Studio 2022 with .NET 8 workload)
+- **Visual Studio 2022** (recommended) with:
+  - .NET Desktop Development workload
+  - Windows App SDK / WPF support
+- **Inno Setup 6** (for building installer) – `C:\Users\<user>\AppData\Local\Programs\Inno Setup 6\ISCC.exe` or installed in Program Files
+- **YT-DLP/FFmpeg/FFprobe** (optional but recommended for video downloads) – bundled via `tools/Get-VideoTools.ps1` or placed in `artifacts/publish/app/tools/`
 
-To run the real yt-dlp probe/download and pause/resume tests (network access
-required):
+## Build Instructions (Visual Studio)
 
-```powershell
-$env:ADM_YTDLP_INTEGRATION = '1'
-dotnet run --project tests\ADM.Core.Tests\ADM.Core.Tests.csproj
-Remove-Item Env:ADM_YTDLP_INTEGRATION
-```
-
-The FTP test needs a local FTP server; point the test at one with
-`ADM_FTP_URL` and enable it with `ADM_FTP_INTEGRATION=1`:
-
-```powershell
-$env:ADM_FTP_INTEGRATION = '1'
-$env:ADM_FTP_URL = 'ftp://user:pass@127.0.0.1:2121/file.bin'
-dotnet run --project tests\ADM.Core.Tests\ADM.Core.Tests.csproj
-```
-
-### Publish and build the installer
-
-```powershell
-# Tests + self-contained single-file publish (+ installer if Inno Setup is installed)
-powershell -ExecutionPolicy Bypass -File build.ps1
-
-# Publish only, skip Inno Setup
-powershell -ExecutionPolicy Bypass -File build.ps1 -SkipInstaller
-
-# Smaller build that requires the .NET 8 Desktop Runtime
-powershell -ExecutionPolicy Bypass -File build.ps1 -FrameworkDependent -SkipInstaller
-```
-
-Output goes to `artifacts\publish\` (`app`, `native`, `extension`) and
-`artifacts\installer\`. The build copies `yt-dlp.exe`, `ffmpeg.exe`, and
-`ffprobe.exe` into `artifacts\publish\app\tools\`; missing tools are downloaded
-into `vendor\` first, so the installed app does not depend on PATH. The installer
-uses the folder selected during setup. The bundled ffmpeg build adds roughly
-200 MB to the published folder.
-
-The installer is produced by [Inno Setup 6](https://jrsoftware.org/isinfo.php).
-`build.ps1` looks for `ISCC.exe` in the per-user and per-machine locations; when
-Inno Setup is missing the publish still succeeds and only the installer step is
-skipped. The product version is defined once in `Directory.Build.props` and is
-passed to the installer by the build script. After installing Inno Setup, rerun
-`build.ps1` to produce a version-matched installer.
-
-The app is not code-signed unless a certificate is supplied to `build.ps1`;
-Windows SmartScreen may show a warning for unsigned builds. See
-[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md) for the release and
-fresh-install checklist. The current engineering priorities are in
-[`docs/UPDATE_PLAN.md`](docs/UPDATE_PLAN.md); the original design sketch is
-kept for historical context.
-
-## Browser extension
-
-The extension lives in `extension\`. It communicates with the app through a
-native messaging host named `com.adm.downloadmanager`. On supported video pages
-it overlays a small **Download** button on the playing video; clicking it opens
-ADM's format picker for that page. The popup has a **Download video** button
-for the current tab, and a **Download video with ADM** entry in the right-click
-menu.
-
-**Chrome, Edge, Brave, Chromium**
-
-1. Install ADM (the installer registers the native host), or register a local
-   build during development:
-   ```powershell
-   powershell -ExecutionPolicy Bypass -File tools\Register-NativeHost.ps1
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/MeTariqul/ADM-All-Download-Manager.git
+   cd "ADM All Download Manager"
    ```
-2. Open `chrome://extensions` (or `edge://extensions`) and enable
-   **Developer mode**.
-3. Choose **Load unpacked** and select the `extension` folder.
-4. Open the extension popup — it should report **ADM ready**. If it reports
-   **ADM not running**, click **Open ADM** to start the app.
 
-The manifest pins the extension ID to
-`nanpfakhkjjfpmibmdapaeldgodbmebh`, matching the native host manifest.
+2. **Open the solution**
+   - Open `ADM.sln` in Visual Studio 2022
+   - Restore NuGet packages (should happen automatically)
 
-**Firefox**
+3. **Set startup project**
+   - Set `ADM.App` as the startup project
 
-Copy `extension\manifest.firefox.json` over `manifest.json` in a writable copy
-of the folder, then load it from `about:debugging#/runtime/this-firefox`.
-Temporary add-ons last until Firefox closes; permanent installation requires
-Mozilla signing.
+4. **Build**
+   - Build solution in `Debug` or `Release` configuration (`Build > Build Solution`)
+   - Output goes to `src/ADM.App/bin/<Configuration>/net8.0-windows/`
 
-See [`extension/README.md`](extension/README.md) for extension behaviour and
-development details. ADM 1.3.1 release notes and production checks are in
-[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md).
+5. **Run**
+   - Press `F5` to run with debugging, or `Ctrl+F5` without debugging
 
-## Project layout
+### Build via PowerShell (alternative)
 
-```
-src/ADM.Core/          Download engine, models, storage, pipe/native-messaging protocol
-src/ADM.Core/Media/    yt-dlp locator/service, format parser, video download task
-src/ADM.Core/Net/      HTTP probe, proxy/auth helpers, FTP client
-src/ADM.Core/Licensing/  Ed25519 verification, licence tokens, activation client
-src/ADM.Core/Util/     File names, categories, checksums, disk space, diagnostics log
-src/ADM.App/           WPF desktop app (UI, view models, pipe server, settings)
-src/ADM.App/Services/  Pipe server, native host helper, notification-area icon
-src/ADM.NativeHost/    Native messaging host used by the browser extension
-tests/ADM.Core.Tests/  Console test harness and local HTTP test server
-extension/             Chromium/Firefox MV3 extension (background, content, popup)
-installer/             Inno Setup script
-tools/                 Dev helpers (native host registration, icon generation, video tools)
-vendor/                Local yt-dlp/ffmpeg binaries (ignored by git)
-build.ps1              Test + publish + installer pipeline
+Use the provided build script:
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1 -Configuration Release
 ```
 
-## How it works
+Options:
+- `-SkipTests` – skip engine tests
+- `-SkipInstaller` – build/publish without creating installer
+- `-FrameworkDependent` – publish framework-dependent instead of self-contained
+- `-SkipVideoTools` – skip bundling video tools
 
-1. `HttpProbe` sends a ranged request to learn the size, `ETag`, and whether the
-   server supports ranges.
-2. `SegmentPlanner` divides the file into non-overlapping ranges. A single
-   preallocated `.admpart` file backs all segments, and each `SegmentWorker`
-   writes only its own byte range (opened with shared access).
-3. `DownloadTask` runs the workers, monitors progress, retries failures, and
-   splits slow segments while data is still flowing. When every range is
-   complete it validates the length and moves the file to its final name.
-4. `DownloadManager` owns the queue, concurrency limit, persistence, and
-   pause/resume orchestration. It also applies the duplicate policy, the
-   file-exists policy, the free-space check, the retry policy and the queue
-   priority.
+The script builds all projects, runs tests (unless skipped), publishes app/native/extension, bundles video tools, and runs Inno Setup.
 
-### Network and safety
+## Browser Extension Setup (Chrome/Firefox)
 
-- `NetworkOptions` builds the proxy and the `Authorization` header once, and
-  `HttpProbe` applies them to every request, including the segment workers.
-- `DiskSpace.Check` refuses a download that does not fit on the target drive
-  and leaves a small margin so the system stays usable.
-- `Checksum.Compute` hashes the finished file and compares it with the expected
-  value; the result is shown in the list.
-- `DiagnosticsLog` writes a rolling log to `%APPDATA%\ADM\adm.log` and keeps
-  one rotated copy at `adm.log.1`. Download diagnostics record only the URL
-  origin; credentials, path, query, and fragment are omitted.
+The browser extension is in the `extension/` directory.
 
-### The notification-area icon
+### Chrome / Edge / Brave (Chromium)
 
-`TrayIconService` talks to the shell directly (`Shell_NotifyIcon`), so no
-Windows Forms stack is needed. The main window owns the icon, which keeps the
-callback plumbing simple: the window stays alive while hidden, and the shell
-keeps sending the click messages to it. The tooltip mirrors the queue summary,
-and the right-click menu offers **Show ADM**, **Pause all downloads**,
-**Resume all downloads** and **Exit ADM**.
+1. Open `chrome://extensions/` (or `edge://extensions/`)
+2. Enable **Developer mode** (toggle in top-right)
+3. Click **Load unpacked**
+4. Select the `extension/` folder from the repository (or the installed location)
+5. The ADM extension should appear
 
-### Video downloads
+### Firefox
 
-1. A video-page URL is recognised by `VideoUrlDetector` and opens
-   `VideoDownloadWindow` instead of the HTTP engine. Direct media files
-   (`.mp4`, `.mp3`, ...) still use the segmented HTTP engine, which is faster
-   for a single file.
-2. `YtDlpService` runs `yt-dlp -J --no-playlist` and `YtDlpFormatParser` groups
-   the raw formats into one row per resolution, preferring direct HTTPS streams
-   over duplicate HLS variants. Each row is a yt-dlp selector such as
-   `137+bestaudio[ext=m4a]/137+bestaudio/best`; audio-only rows produce M4A or
-   MP3.
-3. `YtDlpDownloadTask` runs yt-dlp with a machine-readable progress template,
-   maps bytes/speed/ETA into the normal list, and lets ffmpeg merge the selected
-   video and audio. Pausing kills the process tree; resuming runs yt-dlp again
-   with `--continue`, reusing its `.part` files.
-4. The final path reported by yt-dlp replaces the tentative `.mp4` path, so the
-   list opens the actual MP4, MKV, M4A, or MP3 that was produced.
+Firefox uses `manifest.firefox.json`. For development/testing:
 
-The in-page browser button sends `OPEN_VIDEO` through native messaging. The
-native host forwards it to the running app over the named pipe; if ADM is not
-running, it starts ADM and then opens the picker through the same pipe.
+1. Open `about:debugging#/runtime/this-firefox`
+2. Click **Load Temporary Add-on...**
+3. Select `extension/manifest.firefox.json` (or copy it over `manifest.json` in a writable copy)
+4. Note: Temporary add-ons are removed when Firefox closes; permanent installation requires Mozilla signing
 
-### Local communication
+See `extension/README.md` for more details.
 
-- **Desktop IPC** — named pipe `ADM.DownloadManager.v1`, one line of JSON per
-  request. Used for single-instance URL forwarding and by the native host.
-- **Native messaging** — 4-byte little-endian length prefix followed by JSON,
-  as required by Chromium and Firefox.
+## Native Messaging Configuration
 
-The native host looks for `ADM.exe` next to itself, which covers the installed
-layout. In a development checkout it walks up to the solution file and checks
-the build outputs, so the extension can start ADM without a browser restart.
-`ADM_EXE` overrides the search when it is set.
+The NativeHost (`ADM.NativeHost`) communicates with browsers via native messaging. The app/installer sets up registry keys pointing to the native host manifest.
 
-### Where data is stored
+### Manifest Locations
 
-| What | Path |
-| --- | --- |
-| Download list and resume state | `%APPDATA%\ADM\downloads.json` |
-| Settings | `%APPDATA%\ADM\settings.json` |
-| Licence | `%APPDATA%\ADM\license.json` |
-| Diagnostics log | `%APPDATA%\ADM\adm.log` |
-| Default download folder | `%USERPROFILE%\Downloads\ADM` |
-| Partial HTTP downloads | `<download folder>\<file>.admpart` |
-| Partial video downloads | `<download folder>\<file>*.part` (managed by yt-dlp) |
-| Bundled video tools | `tools\yt-dlp.exe`, `tools\ffmpeg.exe`, `tools\ffprobe.exe` |
+- **Chrome/Chromium**: `extension/com.adm.nativehost.json` (installed with app)
+- **Firefox**: `extension/com.adm.nativehost.firefox.json`
 
-Settings can be changed in the app (gear icon): folder, connections per
-download, simultaneous downloads, speed limit, auto-resume, start with Windows,
-delete confirmation, proxy and credentials, cookie header, clipboard monitor,
-disk-space check, duplicate and file-exists policies, retry policy, schedule,
-notifications, the ADM light theme and the diagnostics log. The settings window also
-reports whether yt-dlp and ffmpeg were found and can update yt-dlp.
+### Registry Keys (set by installer or manually)
 
-### Closing the window
+#### Windows (Current User)
 
-Closing the main window does not quit ADM. The app keeps running in the
-notification area and the downloads continue; a balloon tip points this out the
-first time. Use the tray icon to bring the window back, pause or resume the
-queue, or to **Exit ADM** for real.
+For Chrome/Chromium:
+```
+HKEY_CURRENT_USER\Software\Google\Chrome\NativeMessagingHosts\com.adm.nativehost
+```
+Value: path to `com.adm.nativehost.json`
+
+For Edge:
+```
+HKEY_CURRENT_USER\Software\Microsoft\Edge\NativeMessagingHosts\com.adm.nativehost
+```
+
+For Firefox:
+```
+HKEY_CURRENT_USER\Software\Mozilla\NativeMessagingHosts\com.adm.nativehost
+```
+Value: path to `com.adm.nativehost.firefox.json`
+
+The manifest points to the `ADM.NativeHost.exe` executable. The installer handles this automatically; for development, ensure paths are correct and the app is running.
+
+## How Downloads Work (SegmentPlanner & SegmentWorker)
+
+### SegmentPlanner (`Adm.Core.Engine.SegmentPlanner`)
+
+- **`MinimumSegmentSize = 512 * 1024`** – Segments smaller than this aren't worth a separate connection
+- **`MaximumConnections = 32`**
+- **`Plan(totalBytes, requestedConnections)`**:
+  - If `totalBytes <= 0`: creates one segment `{Start=0, End=-1, Position=0}` (streaming/single-stream, no resume support)
+  - Otherwise clamps connections to `[1, 32]` and limits by `totalBytes / MinimumSegmentSize`
+  - Splits file evenly: `baseSize = totalBytes / connections`, remainder distributed to first segments
+  - Creates `SegmentRecord` objects with `{Start, End, Position}`
+
+### SegmentWorker (`Adm.Core.Engine.SegmentWorker`)
+
+- Downloads a single `Segment` with HTTP Range requests
+- **Retry logic**: Retries up to `MaxRetries` times on transient failures with exponential backoff (`delay = min(10, 2^attempt)`)
+- **Transfer**:
+  - For segmented downloads: requests `Range: bytes=start-end` with `IfRange` header (using ETag if strong)
+  - Validates response is `206 PartialContent` (throws if server returns `200 OK` ignoring ranges)
+  - Validates `Content-Range` matches expected range and `Content-Length` matches `end-start+1`
+  - Writes to file at `position` using `RandomAccess.WriteAsync` with a shared file handle
+  - Updates segment position as bytes are written
+- **Streaming downloads** (unknown length, `End < 0`): No range requests, retries by restarting from beginning if connection drops mid-stream
+- **Buffer**: 64KB buffers from `ArrayPool<byte>`, throttled via `SpeedLimiter`
+
+### DownloadTask Orchestration (`Adm.Core.Engine.DownloadTask`)
+
+1. **Probe**: `HttpProbe.ProbeAsync` sends a GET with `Range: bytes=0-0` to detect range support, total size, ETag, Last-Modified, Content-Disposition, Content-Type
+2. **Prepare**: If no file path, resolves filename via `FileNameResolver` (prefers `filename*`, then `filename`, then URL; adds extension from MIME type if missing). Creates temp file preallocated to total size if ranges supported.
+3. **Plan segments**: Uses `SegmentPlanner.Plan()` or creates single streaming segment
+4. **Restore**: For paused downloads, validates temp file exists with correct size, probes server again, checks ETag/Last-Modified match, restores segment positions
+5. **Transfer**: Starts `SegmentWorker` for each incomplete segment. Monitors workers, reports progress every 250ms. Dynamically splits large busy segments when connections available (`SplitBusySegments`)
+6. **Complete**: Moves `.admpart` to final path per `FileExistsPolicy`, verifies checksum if configured, cleans up
+
+## Speed Limiting
+
+**`Adm.Core.Engine.SpeedLimiter`** (token bucket):
+
+- **Burst**: 128 KB burst capacity
+- **Token refill**: Tokens refill at rate `BytesPerSecond` based on elapsed time
+- **Throttling**: `ThrottleAsync(byteCount)` acquires semaphore, refills tokens, sleeps if insufficient tokens, consumes tokens
+- **Shared**: Single instance shared by all workers of a download
+- **Disabled** when `BytesPerSecond == 0`
+
+Workers call `context.Limiter.ThrottleAsync(read, cancellationToken)` after reading from the network stream and before writing to disk, applying back-pressure to TCP reads.
+
+## FTP Client
+
+**`Adm.Core.Net.FtpClient`**:
+
+- **Connection**: TCP socket to host:port. Supports implicit TLS (encrypts entire session from start via `SslStream`).
+- **Authentication**: `USER`/`PASS` (defaults to anonymous/`adm@localhost`)
+- **Binary mode**: `TYPE I`
+- **Passive mode**: `PASV` to get data channel address/port
+- **Resume**: `REST <offset>` before `RETR` to resume from offset
+- **Download**: Opens data connection, reads stream to destination, reports progress, waits for `226 Transfer complete`
+- **Size**: `SIZE <path>` returns file size or -1
+
+**`Adm.Core.Engine.FtpDownloadTask`**:
+
+- Parses URL with `FtpUrl`, creates `FtpClient`, connects, gets size if available
+- Resumes from existing `.admpart` file size if present
+- Downloads to temp file, writes with progress updates every 300ms
+- Handles pause/cancel by checking cancellation token
+- Moves to final path per file-exists policy on completion
+
+## YT-DLP Media Extraction
+
+**`Adm.Core.Media.YtDlpService`**:
+
+- **Locator**: `YtDlpLocator` finds `yt-dlp.exe`, `ffmpeg.exe`, `ffprobe.exe` in app directory, tools folder, or PATH
+- **Process execution**: Spawns bundled `yt-dlp.exe` as a separate process with `UseShellExecute=false`, `CreateNoWindow=true`, captures stdout/stderr
+- **Common arguments** (`AddCommonArguments`): `--no-playlist`, `--no-warnings`, `--no-colors`, `--no-mtime`, `--ffmpeg-location <dir>` if ffmpeg found
+- **Proxy/cookies**: Adds `--proxy` and `--cookies-from-browser` if configured
+- **GetVersionAsync()**: Runs `yt-dlp --version`
+- **UpdateAsync()**: Copies yt-dlp to temp, runs `--update-to stable`, copies updated file back in place (yt-dlp updates itself)
+- **GetInfoAsync(url, allowPlaylist)**: Runs `yt-dlp -J --skip-download --no-progress --socket-timeout 20 <url>`, parses JSON with `YtDlpFormatParser`. Throws `YtDlpException` on errors.
+- **GetPlaylistAsync(url)**: Runs `yt-dlp -J --flat-playlist --skip-download --no-progress`, parses with `YtDlpPlaylistParser`
+- **Error parsing**: Strips ANSI codes, extracts `ERROR:` lines, falls back to last lines
+
+**`Adm.Core.Media.YtDlpDownloadTask`**:
+
+- Orchestrates video/audio downloads via yt-dlp
+- Uses format selection from parsed `VideoInfo`/formats
+- Handles merging with FFmpeg when separate video/audio streams needed
+- Writes progress by parsing yt-dlp output
+- Supports subtitles (`--write-subs`, `--sub-langs`)
+
+**`Adm.Core.Media.YtDlpFormatParser`** & **`YtDlpPlaylistParser`** parse yt-dlp JSON output into `VideoInfo`, `VideoFormat`, `PlaylistInfo` models.
 
 ## Licensing
 
-ADM needs a licence key. The key is exchanged for a signed token, and the token
-is verified **offline** with a public key that ships inside the app, so the app
-keeps working without a network connection.
+**Ed25519-based licensing** (`Adm.Core.Licensing`):
 
-| Step | What happens |
-| --- | --- |
-| Activate | `POST /api/license/activate` with the key, the device id and the app key. The server returns a signed token, which is stored in `%APPDATA%\ADM\license.json`. |
-| Launch | The token is verified locally: the Ed25519 signature, the device id and the expiry. No network is used. |
-| Re-check | When the token asks for it (`r`), `POST /api/license/verify` is called. A blocked, suspended, expired or revoked licence takes effect here. |
+- **`LicenseClient`** (`https://metariqul.vercel.app/api/license`): `ActivateAsync`, `VerifyAsync`, `RequestKeyAsync`, `GetPublicKeyAsync`. Sends app key in `x-app-key` header.
+- **`LicenseService`**: Manages license state. **Checks license online once per day** (stores `LastVerifiedAt` in `license.json`). Verifies token signature offline with shipped public key (`LicenseConfiguration.PublicKeyPem`). Binds to device via `DeviceIdentity`. States: `Active`, `NotActivated`, `Expired`, `Suspended`, `DeviceLimit`, `RevokedDevice`, `Invalid`, `Unreachable`, `Tampered`.
+- **`LicenseToken`**: Base64URL-encoded payload + Ed25519 signature (`.Base64Url`). Claims include device ID, expiry, recheck time.
+- **App behavior**: `App.xaml.cs` calls `EnsureLicensedAsync()` before showing main window. If not licensed, shows `LicenseWindow`. When verified, shows thank-you note with option to **Remove licence** (clears stored license).
 
-The token format is `base64url(payload).base64url(signature)`. The payload
-carries the device id (`d`), the expiry (`e`) and the next re-check time (`r`),
-all in Unix milliseconds.
+## Storage Locations
 
-**Device id** — the Windows `MachineGuid` in its canonical GUID form, the same
-fingerprint the licensing service and the other applications of the author use.
-The server stores only a SHA-256 digest of it, so the raw value never lands in
-the database. The activation window shows it and can copy it to the clipboard.
+| Data | Location | Managed By |
+| --- | --- | --- |
+| Settings | `%APPDATA%\ADM\settings.json` | `SettingsStore` |
+| Download state | `%APPDATA%\ADM\downloads.json` | `DownloadStore` |
+| License | `%APPDATA%\ADM\license.json` | `LicenseStore` |
+| Logs | `%APPDATA%\ADM\adm.log` (+ `adm.log.1` on rotation) | `DiagnosticsLog` |
+| App key override | `<appdir>\appkey.txt` | `AppKeyStore` |
 
-**Offline behaviour** — the signature check needs no network. If the server
-cannot be reached when a re-check is due, ADM keeps running until the licence
-itself expires and says so in the log, rather than locking a paying user out
-because of a flaky connection. A server that *does* answer and refuses the
-licence locks the app immediately.
+## Diagnostics & Logs
 
-**The app key** — every request carries an `x-app-key` header that identifies
-this build. It is set in `LicenseConfiguration.AppKey`. It can also be supplied
-at run time with the `ADM_APP_KEY` environment variable, an `appkey.txt` file
-next to the executable, or the **Set the app key** panel in the activation
-window, so a build that was packaged with an incomplete key can be repaired
-without a rebuild. The licence server answers a wrong licence key and a wrong
-app key in the same way, so the activation window names both.
+- **`Adm.Core.Util.DiagnosticsLog`**: Rotates at 2 MiB, retains one previous copy (`adm.log.1`). Logs only URL **origin** for download/clipboard events (omits credentials, path, query, fragment).
+- Logs configured in `App.xaml.cs` during startup based on `settings.WriteLogFile`.
 
-### Registering the app in the licence dashboard
+## License & Third-Party Notices
 
-The licence service keeps one row per shipped application, and a licence key
-only works for the application it was issued for. A new build of ADM therefore
-needs a row in the dashboard before anyone can activate it.
-`tools/Register-LicenseApp.mjs` writes that row and creates a licence key:
-
-```powershell
-node tools\Register-LicenseApp.mjs --dashboard "D:\path\to\the\dashboard"
-```
-
-The script is idempotent, never deletes anything, and prints the app key and
-the licence key. Put the app key in `LicenseConfiguration.AppKey` and give the
-licence key to the person who installs the build. The dashboard can also issue
-keys on its own through the admin pages.
-
-The Ed25519 verification is implemented in `Adm.Core.Licensing.Ed25519`
-(RFC 8032), so the app needs no cryptography package. It can confirm a token
-but never create one.
-
-## Limitations
-
-- Direct downloads are HTTP/HTTPS and FTP/FTPS. No BitTorrent.
-- Video support depends on the bundled yt-dlp build and on site extractors. The
-  video engine updates itself in the background, and the settings window has a
-  button to update it on demand; if extraction still fails, run
-  `tools\Get-VideoTools.ps1 -Force` to refresh it.
-- A playlist is downloaded entry by entry at the best available quality; the
-  format picker is used for single videos.
-- Live streams are not supported yet; the picker reports them as such.
-- DRM-protected services (Netflix, Prime Video, Disney+, etc.) are not supported.
-- Merged video+audio and MP3 output require ffmpeg. Without it, choose a
-  progressive MP4/M4A format.
-- The browser cookies are forwarded to yt-dlp only when a browser is named in
-  the settings; without them, age-restricted, private, or login-only videos may
-  fail even though the normal user agent and referrer are used.
-- Media sniffing is best-effort; some streaming sites split audio and video into
-  separate requests that ADM cannot merge without yt-dlp.
-- Servers without range support download in a single stream and cannot resume.
-- The app update check needs a release feed; the built-in URL is a placeholder
-  and must be pointed at your own feed before it reports anything.
-- Firefox needs a signed package for a permanent extension install.
-- The UI is English-only and the app is Windows-only.
-
-Download only content you have the right to save. Site terms of service still
-apply. Bundled `yt-dlp` and FFmpeg binaries remain under their own upstream
-licenses; see the [yt-dlp](https://github.com/yt-dlp/yt-dlp) and
-[FFmpeg](https://ffmpeg.org/legal.html) projects for details.
+See `LICENSE` and `THIRD-PARTY-NOTICES.md`. Uses `yt-dlp`, `ffmpeg`, `ffprobe`. Browser extension is unpacked for development.

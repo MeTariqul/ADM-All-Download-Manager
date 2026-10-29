@@ -298,4 +298,48 @@ public sealed class LicenseService
             DeviceId = DeviceId
         };
     }
+
+    /// <summary>
+    /// Unregisters the stored licence from this device on the licence server,
+    /// then removes it locally. The device slot is released, so a different
+    /// key can be activated afterwards. A network failure still removes the
+    /// local copy so the user is never locked in.
+    /// </summary>
+    public async Task<LicenseStatus> UnregisterAsync(CancellationToken cancellationToken = default)
+    {
+        var record = _store.Load();
+
+        if (record is null || string.IsNullOrWhiteSpace(record.Key))
+        {
+            Clear();
+            return _status;
+        }
+
+        try
+        {
+            var response = await _client.DeactivateAsync(record.Key!, DeviceId, cancellationToken)
+                .ConfigureAwait(false);
+
+            if (response.IsNetworkError)
+                DiagnosticsLog.Warn("The licence server could not be reached to unregister: " + response.Error);
+            else if (!response.Ok)
+                DiagnosticsLog.Warn("The server refused the unregister: " + response.Error);
+            else
+                DiagnosticsLog.Info("The licence was unregistered on the server.");
+        }
+        catch (Exception ex)
+        {
+            DiagnosticsLog.Warn("The unregister call failed.", ex);
+        }
+
+        // The local copy is always removed so a new key can be entered.
+        _store.Clear();
+        _status = new LicenseStatus
+        {
+            State = LicenseState.NotActivated,
+            Message = "The licence was unregistered. You can now activate a different key.",
+            DeviceId = DeviceId
+        };
+        return _status;
+    }
 }

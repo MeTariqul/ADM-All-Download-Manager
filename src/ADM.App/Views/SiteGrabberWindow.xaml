@@ -1,0 +1,25 @@
+﻿<Window x:Class="Adm.App.Views.SiteGrabberWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Site Grabber" Width="700" Height="500"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <TextBlock Text="Grab all links from a webpage" FontSize="16" FontWeight="SemiBold"/>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,12,0,12">
+            <TextBox x:Name="UrlBox" Width="500" Style="{StaticResource InputBox}" KeyDown="OnUrlKeyDown"/>
+            <Button Content="Grab" Margin="8,0,0,0" Style="{StaticResource PrimaryButton}" Click="OnGrab"/>
+        </StackPanel>
+        <ListBox x:Name="LinksList" Grid.Row="2" SelectionMode="Multiple"/>
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+            <Button Content="Add Selected" Style="{StaticResource PrimaryButton}" Click="OnAddSelected"/>
+            <Button Content="Cancel" Margin="8,0,0,0" Style="{StaticResource GhostButton}" Click="OnCancel"/>
+        </StackPanel>
+    </Grid>
+</Window>

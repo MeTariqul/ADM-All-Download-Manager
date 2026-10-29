@@ -20,21 +20,28 @@
         </Grid.RowDefinitions>
 
         <StackPanel>
-            <TextBlock Text="Activate ADM" FontSize="22" FontWeight="SemiBold" />
-            <TextBlock Text="Enter your licence key, request one by email, or use the included seven-day trial."
+            <TextBlock x:Name="TitleText" Text="Activate ADM" FontSize="22" FontWeight="SemiBold" />
+            <TextBlock x:Name="SubtitleText"
+                       Text="Enter your licence key, request one by email, or use the included seven-day trial."
                        FontSize="12" Foreground="{StaticResource TextMutedBrush}"
                        TextWrapping="Wrap" Margin="0,6,0,0" />
         </StackPanel>
 
         <ScrollViewer Grid.Row="1" Margin="0,18,0,12" VerticalScrollBarVisibility="Auto">
           <StackPanel x:Name="ContentPanel" Margin="0,4,8,4">
+            <StackPanel x:Name="CheckingPanel">
+                <TextBlock x:Name="CheckingText" FontSize="12" TextWrapping="Wrap"
+                           Foreground="{StaticResource TextMutedBrush}"
+                           Text="Checking the licence with the server…" />
+            </StackPanel>
+
             <Border x:Name="TrialPanel" Background="{StaticResource SurfaceAltBrush}"
                     BorderBrush="{StaticResource AccentBrush}" BorderThickness="1" CornerRadius="8"
                     Padding="13" Margin="0,0,0,18" Visibility="Collapsed">
                 <TextBlock x:Name="TrialText" FontSize="12" TextWrapping="Wrap" />
             </Border>
 
-            <StackPanel x:Name="ActivatePanel">
+            <StackPanel x:Name="ActivatePanel" Visibility="Collapsed">
                 <TextBlock Text="LICENCE KEY" Style="{StaticResource SectionLabel}" />
                 <TextBox x:Name="KeyBox" Style="{StaticResource InputBox}" Margin="0,10,0,0"
                          FontSize="13" KeyDown="OnKeyDown" />
@@ -133,7 +140,8 @@
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Licensing website" Style="{StaticResource GhostButton}" Margin="0,0,10,0"
                     Click="OnOpenWebsite" />
-            <Button x:Name="RemoveButton" Content="Remove licence" Style="{StaticResource GhostButton}" Margin="0,0,10,0"
+            <Button x:Name="RemoveButton" Content="Unregister key" Style="{StaticResource GhostButton}" Margin="0,0,10,0"
+                    ToolTip="Release this key from this device so a different key can be activated"
                     Click="OnRemoveLicence" />
             <Button x:Name="CloseButton" Content="Close" Style="{StaticResource GhostButton}" Click="OnClose" />
         </StackPanel>

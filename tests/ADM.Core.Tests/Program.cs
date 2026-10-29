@@ -1,4 +1,7 @@
+using System.Net;
+using System.Net.Http;
 using System.Security.Cryptography;
+using System.Text;
 using Adm.Core;
 using Adm.Core.Media;
 using Adm.Core.Models;
@@ -894,22 +897,38 @@ internal static class Program
         using var temp = new TempDirectory();
         var store = new LicenseStore(Path.Combine(temp.Path, "license.json"));
 
+        // The licence is verified against the online database, so every check
+        // needs a server. The fake one confirms every request.
+        var handler = new FakeLicenseHandler();
+        handler.Reply("verify", $$"""{"ok":true,"token":"{{testToken}}"}""");
+        var client = new LicenseClient("appk_test", "https://fake.licence.test/api/license",
+            new HttpClient(handler));
+
         // No licence yet.
-        var service = new LicenseService(store, deviceId: "adm-test-device", publicKeyPem: testPublicKey);
+        var service = new LicenseService(store, client, testPublicKey, "adm-test-device");
         var status = await service.CheckAsync();
         Assert.Equal(LicenseState.NotActivated, status.State);
         Assert.False(status.CanRun, "an unlicensed app must not run");
+        Assert.False(handler.Requests.Contains("verify"), "an unactivated copy must not call the server");
 
-        // A licence for this device, signed correctly.
+        // A licence for this device, signed correctly, confirmed online.
         store.Save(LicenseRecord.FromItem("ADM-TEST-KEY", testToken));
         status = await service.CheckAsync();
         Assert.Equal(LicenseState.Active, status.State);
         Assert.True(status.CanRun, "a valid licence must let the app run");
         Assert.Equal("ADM-TEST-KEY", status.Key);
         Assert.True(status.ExpiresAt is not null, "the expiry was not read");
+        Assert.True(handler.Requests.Contains("verify"), "the licence was not verified online");
+
+        // Within the daily window the cached confirmation is reused, so the
+        // server is not asked again on every launch.
+        int callsAfterFirstCheck = handler.Requests.Count;
+        status = await service.CheckAsync();
+        Assert.Equal(LicenseState.Active, status.State);
+        Assert.Equal(callsAfterFirstCheck, handler.Requests.Count);
 
         // The same licence on a different device.
-        var otherDevice = new LicenseService(store, deviceId: "another-device", publicKeyPem: testPublicKey);
+        var otherDevice = new LicenseService(store, client, testPublicKey, "another-device");
         status = await otherDevice.CheckAsync();
         Assert.Equal(LicenseState.RevokedDevice, status.State);
         Assert.False(status.CanRun, "a licence for another device must not run");
@@ -925,15 +944,60 @@ internal static class Program
 
         // A token signed by a different key.
         store.Save(LicenseRecord.FromItem("ADM-TEST-KEY", testToken));
-        var wrongKey = new LicenseService(store, deviceId: "adm-test-device",
-            publicKeyPem: LicenseConfiguration.PublicKeyPem);
+        var wrongKey = new LicenseService(store, client, LicenseConfiguration.PublicKeyPem, "adm-test-device");
         status = await wrongKey.CheckAsync();
         Assert.True(status.State == LicenseState.Tampered,
             $"a licence signed by another key gave '{status.State}' instead of Tampered");
 
+        // The server refuses the key: the app must not run.
+        handler.Reply("verify", """{"ok":false,"status":"suspended","error":"This key was suspended."}""");
+        var suspendedStore = new LicenseStore(Path.Combine(temp.Path, "suspended.json"));
+        suspendedStore.Save(LicenseRecord.FromItem("ADM-TEST-KEY", testToken));
+        var suspended = new LicenseService(suspendedStore, client, testPublicKey, "adm-test-device");
+        status = await suspended.CheckAsync();
+        Assert.Equal(LicenseState.Suspended, status.State);
+        Assert.False(status.CanRun, "a suspended licence must not run");
+
+        // The server cannot be reached: the licence is not confirmed, so the
+        // app does not run.
+        handler.ReplyNetworkFailure();
+        var offlineStore = new LicenseStore(Path.Combine(temp.Path, "offline.json"));
+        offlineStore.Save(LicenseRecord.FromItem("ADM-TEST-KEY", testToken));
+        var offline = new LicenseService(offlineStore, client, testPublicKey, "adm-test-device");
+        status = await offline.CheckAsync();
+        Assert.Equal(LicenseState.Unreachable, status.State);
+        Assert.False(status.CanRun, "an unconfirmed licence must not run while the server is down");
+
+        // Unregistering releases the key on the server and clears it locally.
+        handler = new FakeLicenseHandler();
+        handler.Reply("deactivate", """{"ok":true}""");
+        handler.Reply("verify", $$"""{"ok":true,"token":"{{testToken}}"}""");
+        client = new LicenseClient("appk_test", "https://fake.licence.test/api/license",
+            new HttpClient(handler));
+
+        var unregisterStore = new LicenseStore(Path.Combine(temp.Path, "unregister.json"));
+        unregisterStore.Save(LicenseRecord.FromItem("ADM-TEST-KEY", testToken));
+        var unregistering = new LicenseService(unregisterStore, client, testPublicKey, "adm-test-device");
+        status = await unregistering.UnregisterAsync();
+        Assert.True(handler.Requests.Contains("deactivate"), "the key was not unregistered on the server");
+        Assert.True(unregisterStore.Load() is null, "the local licence was not cleared");
+        Assert.Equal(LicenseState.NotActivated, status.State);
+        Assert.False(status.CanRun, "an unregistered key must not run");
+
+        // A different key can be activated again after unregistering.
+        handler = new FakeLicenseHandler();
+        handler.Reply("verify", $$"""{"ok":true,"token":"{{testToken}}"}""");
+        var freshClient = new LicenseClient("appk_test", "https://fake.licence.test/api/license",
+            new HttpClient(handler));
+        store.Save(LicenseRecord.FromItem("ADM-OTHER-KEY", testToken));
+        var newKeyService = new LicenseService(store, freshClient, testPublicKey, "adm-test-device");
+        status = await newKeyService.CheckAsync();
+        Assert.Equal(LicenseState.Active, status.State);
+        Assert.Equal("ADM-OTHER-KEY", status.Key);
+
         // The licence can be removed again.
-        service.Clear();
-        status = await service.CheckAsync();
+        newKeyService.Clear();
+        status = await newKeyService.CheckAsync();
         Assert.Equal(LicenseState.NotActivated, status.State);
     }
 
@@ -1146,6 +1210,45 @@ internal static class Program
         }
 
         throw new TimeoutException(describeFailure());
+    }
+
+    /// <summary>
+    /// A scripted licence server, so the state machine tests never reach the
+    /// real one. Each request path maps to a canned JSON reply.
+    /// </summary>
+    private sealed class FakeLicenseHandler : HttpMessageHandler
+    {
+        private readonly Dictionary<string, string> _replies = new(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _requests = new();
+
+        /// <summary>The paths that were called, in order, for example "verify".</summary>
+        public IReadOnlyList<string> Requests => _requests;
+
+        public void Reply(string action, string json) => _replies[action] = json;
+
+        public void ReplyNetworkFailure() => _replies["__network__"] = "1";
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            // The client posts to {BaseUrl}/{action}, so the action is the
+            // last segment of the path.
+            string path = request.RequestUri?.AbsolutePath.Trim('/') ?? string.Empty;
+            int slash = path.LastIndexOf('/');
+            string action = slash < 0 ? path : path[(slash + 1)..];
+            _requests.Add(action);
+
+            if (_replies.ContainsKey("__network__"))
+                throw new HttpRequestException("simulated network failure");
+
+            if (!_replies.TryGetValue(action, out string? json))
+                json = """{"ok":false,"status":"invalid","error":"unexpected request"}""";
+
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent(json, Encoding.UTF8, "application/json")
+            });
+        }
     }
 
     private sealed class TempDirectory : IDisposable
